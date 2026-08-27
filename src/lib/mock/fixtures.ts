@@ -1,19 +1,18 @@
-import banksJson from "@/src/lib/mock/banks.json";
-import citizensJson from "@/src/lib/mock/citizens.json";
-import complaintsJson from "@/src/lib/mock/complaints.json";
-import suspectsJson from "@/src/lib/mock/suspects.json";
+import { banks } from "@/lib/mock/banks";
+import { caseFixtures } from "@/lib/mock/cases";
+import { personas } from "@/lib/mock/personas";
+import { scamDatabase } from "@/lib/mock/scamdb";
 import type {
-  BankFixture,
   CitizenFixture,
   ComplaintFixture,
   LiveComplaint,
   SuspectIdentifier,
-} from "@/src/lib/mock/types";
+} from "@/lib/mock/types";
 
-export const citizens = citizensJson as CitizenFixture[];
-export const banks = banksJson as BankFixture[];
-export const complaintFixtures = complaintsJson as ComplaintFixture[];
-export const suspects = suspectsJson as SuspectIdentifier[];
+export const citizens: CitizenFixture[] = personas;
+export { banks };
+export const complaintFixtures: ComplaintFixture[] = caseFixtures;
+export const suspects: SuspectIdentifier[] = scamDatabase;
 
 const fromNow = (offsetMinutes: number, now: number) =>
   new Date(now + offsetMinutes * 60_000).toISOString();

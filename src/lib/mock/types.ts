@@ -46,6 +46,25 @@ export interface BankFixture {
   name: string;
   maskedAccount: string;
   holdAmount: number;
+  upiApps: string[];
+  fraudLine: string;
+}
+
+export interface PersonaCaseHistory {
+  acknowledgement: string;
+  label: string;
+  amount: number;
+  currentStage: CaseStage;
+  filedFor: "self" | "relative";
+  legacyStatus?: "Disposed";
+}
+
+export interface DemoPersona extends CitizenFixture {
+  email: string;
+  password: "demo1234";
+  firstName: string;
+  destination: string;
+  caseHistory: PersonaCaseHistory[];
 }
 
 export interface SuspectIdentifier {
