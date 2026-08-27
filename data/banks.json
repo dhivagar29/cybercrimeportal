@@ -1,0 +1,6 @@
+[
+  { "id": "bank-sbi", "name": "State Bank of India", "maskedAccount": "•••• 4821", "holdAmount": 42000 },
+  { "id": "bank-hdfc", "name": "HDFC Bank", "maskedAccount": "•••• 1907", "holdAmount": 118000 },
+  { "id": "bank-axis", "name": "Axis Bank", "maskedAccount": "•••• 7634", "holdAmount": 27500 },
+  { "id": "bank-icici", "name": "ICICI Bank", "maskedAccount": "•••• 3012", "holdAmount": 84000 }
+]

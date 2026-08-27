@@ -1,0 +1,29 @@
+[
+  {
+    "id": "citizen-ananya",
+    "name": "Ananya Rao",
+    "age": 29,
+    "language": "en",
+    "persona": "fresh-victim",
+    "accessCode": "DEMO-ANANYA",
+    "description": "Fresh victim, halfway through stopping a UPI transfer."
+  },
+  {
+    "id": "citizen-meera",
+    "name": "Meera Sharma",
+    "age": 67,
+    "language": "hi",
+    "persona": "relative-filed",
+    "accessCode": "DEMO-MEERA",
+    "description": "Senior citizen whose daughter filed on her behalf."
+  },
+  {
+    "id": "citizen-imran",
+    "name": "Imran Khan",
+    "age": 41,
+    "language": "en",
+    "persona": "wrongly-frozen",
+    "accessCode": "DEMO-IMRAN",
+    "description": "Citizen whose own account was wrongly frozen in a money trail."
+  }
+]
