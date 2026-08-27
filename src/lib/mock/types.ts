@@ -17,7 +17,7 @@ export interface CitizenFixture {
   name: string;
   age: number;
   language: "en" | "hi";
-  persona: "fresh-victim" | "relative-filed" | "wrongly-frozen";
+  persona: "fresh-victim" | "relative-filed" | "case-builder";
   accessCode: string;
   description: string;
 }

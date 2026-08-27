@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getBank, getLiveComplaints } from "@/lib/fixtures";
+import { getBank, getLiveComplaints } from "@/src/lib/mock/fixtures";
 
 type Props = { params: Promise<{ id: string }> };
 

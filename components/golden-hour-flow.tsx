@@ -2,8 +2,8 @@
 
 import { BanknoteArrowDown, CalendarClock, Check, CheckCircle2, Clock3, Landmark, PhoneCall, ShieldCheck, Smartphone, Undo2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { banks } from "@/lib/fixtures";
-import type { Rail } from "@/types/domain";
+import { banks } from "@/src/lib/mock/fixtures";
+import type { Rail } from "@/src/lib/mock/types";
 import { RESPONSE_START_KEY } from "@/components/start-hold-link";
 
 const HOLD_KEY = "cybercrimeportal:hold-request:v1";
@@ -78,7 +78,7 @@ export function GoldenHourFlow() {
   function fireHold(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const request: HoldRequest = {
-      ticket: `GH-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`,
+      ticket: `3${String(Date.now()).slice(-13)}`,
       amount: Number(amount),
       occurredAt: new Date(occurredAt).toISOString(),
       rail,

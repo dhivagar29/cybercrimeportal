@@ -1,14 +1,14 @@
-import banksJson from "@/data/banks.json";
-import citizensJson from "@/data/citizens.json";
-import complaintsJson from "@/data/complaints.json";
-import suspectsJson from "@/data/suspects.json";
+import banksJson from "@/src/lib/mock/banks.json";
+import citizensJson from "@/src/lib/mock/citizens.json";
+import complaintsJson from "@/src/lib/mock/complaints.json";
+import suspectsJson from "@/src/lib/mock/suspects.json";
 import type {
   BankFixture,
   CitizenFixture,
   ComplaintFixture,
   LiveComplaint,
   SuspectIdentifier,
-} from "@/types/domain";
+} from "@/src/lib/mock/types";
 
 export const citizens = citizensJson as CitizenFixture[];
 export const banks = banksJson as BankFixture[];

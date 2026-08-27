@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-import { getLiveComplaints } from "@/lib/fixtures";
+import { getLiveComplaints } from "@/src/lib/mock/fixtures";
 
 const stageLabel = { filed: 'Filed', routed: 'Routed to district', assigned: 'Assigned to IO', hold_placed: 'Hold placed', fir_linked: 'FIR linked', custody_applied: 'Interim custody applied', restored: 'Money restored' } as const;
 

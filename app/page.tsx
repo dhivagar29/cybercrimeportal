@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowRight, PhoneCall, Search } from "lucide-react";
 import { Metric } from "@/components/metric";
 import { StartHoldLink } from "@/components/start-hold-link";
-import { citizens } from "@/lib/fixtures";
+import { citizens } from "@/src/lib/mock/fixtures";
 
 export default function HomePage() {
   return (
