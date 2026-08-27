@@ -1,8 +1,20 @@
-# Cybercrime Portal
+# Reclaim — citizen cybercrime recovery prototype
 
-A hackathon project for building an accessible cybercrime reporting and awareness portal.
+An independent Build What Moves India hackathon prototype that separates urgent payment-response from the slower work of building a cybercrime complaint.
 
-## Status
+## Stack
 
-Project setup is in progress.
+- Next.js App Router, TypeScript, and Tailwind CSS
+- Typed mock fixtures under `src/lib/mock/`
+- Deterministic local classifier/extractor in `src/lib/engine.ts`
+- Browser `localStorage` for resumable demo state
+- No database and zero runtime network calls
 
+## Run
+
+```bash
+npm install
+npm run dev
+```
+
+The public demo is mock-only and is not affiliated with I4C or MHA.

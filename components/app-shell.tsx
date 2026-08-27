@@ -46,7 +46,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <span><strong className="block tracking-[0.08em] text-[#0b2b4c]">RAKSHA</strong><span className="block text-xs text-[#52606d]">नागरिक साइबर सहायता</span></span>
           </Link>
           <div className="flex items-center gap-2">
-            <button className="button-quiet px-2 text-xs" type="button" disabled title="Language switching is outside this demo"><Languages aria-hidden="true" size={16} /><span><span className="hidden md:inline">Demo: </span>English only</span></button>
+            <button aria-label="Demo: English only" className="button-quiet px-2 text-xs" type="button" disabled title="Language switching is outside this demo"><Languages aria-hidden="true" size={16} /><span className="sm:hidden">EN</span><span className="hidden sm:inline">Demo: English only</span></button>
             <button suppressHydrationWarning className="button-quiet" type="button" onClick={toggleLargeType} aria-pressed={largeType}>
               <span aria-hidden="true" className="text-lg font-black">Aa</span>
               <span className="hidden sm:inline">Large type</span>

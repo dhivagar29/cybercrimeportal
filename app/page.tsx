@@ -43,7 +43,8 @@ export default function HomePage() {
             <article className="panel" key={citizen.id}>
               <div className="flex items-start justify-between gap-3"><h3 className="m-0 text-lg">{citizen.name}</h3><span className="status-pill">Age {citizen.age}</span></div>
               <p className="min-h-12 text-sm leading-5 text-[#52606d]">{citizen.description}</p>
-              <p className="mb-0 border-t border-dashed border-[#8292a2] pt-3 font-mono text-sm font-black">Code: {citizen.accessCode}</p>
+              <p className="border-t border-dashed border-[#8292a2] pt-3 font-mono text-sm font-black">{citizen.accessCode}</p>
+              <Link className="button-secondary mt-3 w-full" href={`/login?persona=${citizen.id}`}>Use this mock citizen <ArrowRight aria-hidden="true" size={18} /></Link>
             </article>
           ))}
         </div>
