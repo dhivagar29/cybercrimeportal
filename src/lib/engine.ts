@@ -1,30 +1,150 @@
-export type ExtractedField = {
+export type EntityKind = "amount" | "utr" | "upi" | "phone" | "url" | "handle";
+
+export interface ExtractedEntity {
+  id: string;
+  kind: EntityKind;
   label: string;
   value: string;
-  kind: "amount" | "utr" | "upi" | "phone" | "handle" | "url";
-};
+  source: "narrative" | "mock-ocr";
+}
 
-export type IntakeAnalysis = {
+export interface TimelineEvent {
+  id: string;
+  occurredAt: string;
+  title: string;
+  detail: string;
+}
+
+export interface IntakeAnalysis {
   category: string;
   subcategory: string;
   confidence: number;
+  confidenceNotes: string[];
   summary: string;
-  fields: ExtractedField[];
-  matchedBy: "demo-scenario" | "local-rules";
+  entities: ExtractedEntity[];
+  timeline: TimelineEvent[];
+  matchedBy: "canned-scenario" | "keyword-rules";
+  scenarioId?: ScenarioId;
+}
+
+export interface ClassificationRule {
+  id: string;
+  pattern: RegExp;
+  category: string;
+  subcategory: string;
+  note: string;
+}
+
+export const classificationRules: ClassificationRule[] = [
+  { id: "investment", pattern: /\b(trading|investment|profit|returns?|crypto|withdrawal|stock tips?)\b/i, category: "Online Financial Fraud", subcategory: "Investment Scam", note: "Investment, trading, profit, or withdrawal language matched." },
+  { id: "digital-arrest", pattern: /\b(digital arrest|arrest|cbi|customs|narcotics|safe account|parcel)\b/i, category: "Online Financial Fraud", subcategory: "Digital Arrest", note: "Authority impersonation or digital-arrest coercion matched." },
+  { id: "sextortion", pattern: /\b(video call|nude|naked|morph(?:ed|ing)?|intimate|sextortion|blackmail)\b/i, category: "Online and Social Media Crime", subcategory: "Sextortion", note: "Sexual-image coercion or blackmail language matched." },
+  { id: "vishing", pattern: /\b(electricity|kyc|blocked|disconnect(?:ed|ion)?|bank officer|customer care|verify account)\b/i, category: "Online Financial Fraud", subcategory: "Vishing", note: "Urgent service, KYC, or account-blocking call language matched." },
+  { id: "upi", pattern: /\b(upi|qr code|collect request|phonepe|google pay|gpay|paytm)\b/i, category: "Online Financial Fraud", subcategory: "UPI Fraud", note: "UPI payment or collect-request language matched." },
+  { id: "card", pattern: /\b(credit card|debit card|card number|cvv|card otp|pos transaction)\b/i, category: "Online Financial Fraud", subcategory: "Debit/Credit Card Fraud", note: "Card credential or card transaction language matched." },
+  { id: "loan-app", pattern: /\b(loan app|instant loan|recovery agent|contact list|loan repayment)\b/i, category: "Online Financial Fraud", subcategory: "Fraudulent Loan App", note: "Loan-app or coercive recovery language matched." },
+  { id: "job", pattern: /\b(job offer|part.time job|task scam|work from home|recruiter|registration fee)\b/i, category: "Online Financial Fraud", subcategory: "Online Job Fraud", note: "Recruitment, task, or work-from-home payment language matched." },
+  { id: "shopping", pattern: /\b(online shopping|seller|marketplace|refund|order|delivery|product never)\b/i, category: "Online Financial Fraud", subcategory: "E-commerce Fraud", note: "Marketplace, order, delivery, or refund language matched." },
+  { id: "impersonation", pattern: /\b(impersonat(?:e|ed|ion)|fake profile|hacked account|instagram|facebook|whatsapp account)\b/i, category: "Online and Social Media Crime", subcategory: "Impersonation", note: "A fake or compromised social-media identity matched." },
+  { id: "malware", pattern: /\b(apk|anydesk|remote access|screen share|malware|ransomware|unknown app)\b/i, category: "Cyber Attack", subcategory: "Malware / Remote Access", note: "APK, remote-access, or malware language matched." },
+  { id: "harassment", pattern: /\b(cyber bullying|bullying|abusive messages|threats|trolling)\b/i, category: "Online and Social Media Crime", subcategory: "Cyber Bullying / Harassment", note: "Online abuse, threats, or harassment language matched." },
+];
+
+export const scenarioIds = ["meena", "arjun", "priya"] as const;
+export type ScenarioId = (typeof scenarioIds)[number];
+
+type CannedScenario = {
+  citizen: string;
+  chipLabel: string;
+  narrative: string;
+  category: string;
+  subcategory: string;
+  summary: string;
+  confidenceNotes: string[];
+  entities: Array<Omit<ExtractedEntity, "id" | "source">>;
+  timeline: Array<{ offsetMinutes: number; title: string; detail: string }>;
 };
 
-export const demoNarratives = {
-  meena: "I joined a WhatsApp trading group called Prime Alpha Returns. They first asked for ₹20,000 and kept showing profit. Today I transferred ₹4,20,000 by RTGS after speaking to 9876543210. The UTR is UTR42608271642 and the WhatsApp admin is @primealphahelp. Now they want a tax payment before withdrawal.",
-  arjun: "I got a call from 9812345678 saying my electricity would be disconnected. I paid Rs 18,000 by UPI to powerhelp@oksbi. UTR42608270189. The caller made me install QuickBillSupport.apk and stopped replying.",
-  priya: "A caller claimed to be CBI and kept my father on a video call for a digital arrest. He sent INR 6,80,000 by NEFT to a safe account. Reference UTR42608152204. They used +91 9911223344 and sent a notice from custody-check.in.",
-} as const;
+export const cannedScenarios: Record<ScenarioId, CannedScenario> = {
+  meena: {
+    citizen: "Meena Iyer",
+    chipLabel: "Try Meena's story",
+    narrative: "I joined a WhatsApp trading group called Prime Alpha Returns. They showed fake profits, then asked me to keep investing. Today I sent ₹4,20,000 by bank transfer. The UTR was 426082716421. I spoke to 9876543210 and the admin used @primealphahelp. Now they demand another tax before I can withdraw.",
+    category: "Online Financial Fraud",
+    subcategory: "Investment Scam",
+    summary: "A WhatsApp trading group used fabricated returns and a withdrawal fee to induce repeated transfers.",
+    confidenceNotes: ["Investment, trading, profit, and withdrawal terms agree.", "The amount, 12-digit UTR, phone number, and handle were found.", "This matches the seeded Meena demo account."],
+    entities: [
+      { kind: "amount", label: "Amount", value: "₹4,20,000" },
+      { kind: "utr", label: "UTR", value: "426082716421" },
+      { kind: "phone", label: "Phone number", value: "9876543210" },
+      { kind: "handle", label: "Account handle", value: "@primealphahelp" },
+    ],
+    timeline: [
+      { offsetMinutes: -7200, title: "Joined trading group", detail: "Added to the Prime Alpha Returns WhatsApp group." },
+      { offsetMinutes: -180, title: "Profit shown", detail: "The group displayed fabricated returns and demanded a larger transfer." },
+      { offsetMinutes: -42, title: "Money transferred", detail: "₹4,20,000 sent by bank transfer; UTR 426082716421." },
+      { offsetMinutes: -15, title: "Withdrawal blocked", detail: "Another ‘tax’ payment was demanded before withdrawal." },
+    ],
+  },
+  arjun: {
+    citizen: "Arjun Nair",
+    chipLabel: "Try Arjun's story",
+    narrative: "I got a call from 9812345678 saying my electricity account was blocked and the power would be disconnected. I paid Rs 18,000 by UPI to powerhelp@oksbi. The UTR is 426082701894. They also told me to install QuickBillSupport.apk and then stopped replying.",
+    category: "Online Financial Fraud",
+    subcategory: "Vishing",
+    summary: "A caller used an urgent electricity-disconnection threat to obtain a UPI payment and push an APK installation.",
+    confidenceNotes: ["Electricity, blocked, and disconnected terms indicate vishing.", "The amount, UPI ID, 12-digit UTR, and phone number were found.", "The APK mention is retained as supporting evidence."],
+    entities: [
+      { kind: "amount", label: "Amount", value: "₹18,000" },
+      { kind: "upi", label: "UPI ID", value: "powerhelp@oksbi" },
+      { kind: "utr", label: "UTR", value: "426082701894" },
+      { kind: "phone", label: "Phone number", value: "9812345678" },
+    ],
+    timeline: [
+      { offsetMinutes: -95, title: "Fraud call received", detail: "Caller threatened immediate electricity disconnection." },
+      { offsetMinutes: -82, title: "UPI payment sent", detail: "₹18,000 sent to powerhelp@oksbi." },
+      { offsetMinutes: -75, title: "APK requested", detail: "Caller asked for QuickBillSupport.apk to be installed." },
+      { offsetMinutes: -55, title: "Caller stopped responding", detail: "The number stopped responding after payment." },
+    ],
+  },
+  priya: {
+    citizen: "Priya Sharma",
+    chipLabel: "Try Priya's story",
+    narrative: "A caller claimed to be from CBI and said a customs parcel put my father under digital arrest. They kept him on a video call and ordered him to move ₹6,80,000 to a safe account by NEFT. The UTR was 426081522047. They called from 9911223344 and sent a fake notice from custody-check.in.",
+    category: "Online Financial Fraud",
+    subcategory: "Digital Arrest",
+    summary: "Callers impersonated investigators, isolated the victim on a video call, and directed a transfer to a claimed safe account.",
+    confidenceNotes: ["CBI, customs parcel, digital arrest, and safe account terms agree.", "The amount, 12-digit UTR, phone number, and web address were found.", "The narrative says Priya is filing for her father."],
+    entities: [
+      { kind: "amount", label: "Amount", value: "₹6,80,000" },
+      { kind: "utr", label: "UTR", value: "426081522047" },
+      { kind: "phone", label: "Phone number", value: "9911223344" },
+      { kind: "url", label: "Web address", value: "custody-check.in" },
+    ],
+    timeline: [
+      { offsetMinutes: -310, title: "Impersonation call began", detail: "Caller claimed to be from CBI about a customs parcel." },
+      { offsetMinutes: -280, title: "Video-call isolation", detail: "The victim was told he was under digital arrest and must stay visible." },
+      { offsetMinutes: -220, title: "NEFT transfer sent", detail: "₹6,80,000 moved to a claimed safe account." },
+      { offsetMinutes: -180, title: "Relative learned of fraud", detail: "Priya began preserving the fake notice and call details." },
+    ],
+  },
+};
 
+export const demoNarratives = Object.fromEntries(
+  scenarioIds.map((id) => [id, cannedScenarios[id].narrative]),
+) as Record<ScenarioId, string>;
+
+const upiPattern = /\b[\w.-]+@[a-z]{2,}\b/gi;
+const utrPattern = /\b\d{12}\b/g;
 const moneyPattern = /(?:₹|rs\.?|inr)\s*([\d,]+(?:\.\d+)?)\s*(lakh|lakhs|lac|lacs|crore|cr)?/gi;
-const upiPattern = /\b[a-z0-9][a-z0-9._-]{1,}@[a-z][a-z0-9.-]{1,}\b/gi;
-const phonePattern = /(?:\+91[\s-]?)?[6-9]\d{9}\b/g;
-const utrPattern = /\b(?:UTR)?[A-Z0-9]{11,22}\b/g;
+const phonePattern = /(?:\+91[\s-]?)?\b[6-9]\d{9}\b/g;
 const urlPattern = /\b(?:https?:\/\/)?(?:www\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)+(?:\/[^\s]*)?\b/gi;
 const handlePattern = /(?<![\w.-])@[a-z0-9_]{3,}\b/gi;
+
+function unique(values: string[]) {
+  return [...new Set(values.map((value) => value.trim()))];
+}
 
 function normalizeAmount(raw: string, unit?: string) {
   const base = Number(raw.replaceAll(",", ""));
@@ -33,58 +153,86 @@ function normalizeAmount(raw: string, unit?: string) {
   return base;
 }
 
-function unique(values: string[]) {
-  return [...new Set(values.map((value) => value.trim()))];
+function entity(kind: EntityKind, label: string, value: string, index: number, source: ExtractedEntity["source"] = "narrative"): ExtractedEntity {
+  return { id: `${kind}-${index}-${value.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 24)}`, kind, label, value, source };
 }
 
-function field(label: string, value: string, kind: ExtractedField["kind"]): ExtractedField {
-  return { label, value, kind };
+function relativeIso(now: number, offsetMinutes: number) {
+  return new Date(now + offsetMinutes * 60_000).toISOString();
 }
 
-function classify(text: string) {
+function buildScenario(id: ScenarioId, now: number): IntakeAnalysis {
+  const scenario = cannedScenarios[id];
+  return {
+    category: scenario.category,
+    subcategory: scenario.subcategory,
+    confidence: 97,
+    confidenceNotes: scenario.confidenceNotes,
+    summary: scenario.summary,
+    entities: scenario.entities.map((item, index) => entity(item.kind, item.label, item.value, index)),
+    timeline: scenario.timeline.map((item, index) => ({ id: `${id}-event-${index + 1}`, occurredAt: relativeIso(now, item.offsetMinutes), title: item.title, detail: item.detail })),
+    matchedBy: "canned-scenario",
+    scenarioId: id,
+  };
+}
+
+function detectScenario(text: string): ScenarioId | null {
   const lower = text.toLowerCase();
-  if (/trading|investment|returns?|profit|withdrawal|crypto/.test(lower)) return ["Online Financial Fraud", "Investment Scam / Trading Scam"] as const;
-  if (/digital arrest|cbi|police|customs|courier|safe account/.test(lower)) return ["Online Financial Fraud", "Digital Arrest"] as const;
-  if (/electricity|bill|disconnect|utility/.test(lower)) return ["Online Financial Fraud", "Fraud Call / Vishing"] as const;
-  if (/card|cvv|otp|credit card|debit card/.test(lower)) return ["Online Financial Fraud", "Debit/Credit Card Fraud"] as const;
-  if (/upi|qr code|collect request/.test(lower)) return ["Online Financial Fraud", "UPI Fraud"] as const;
-  if (/instagram|facebook|whatsapp|impersonat|profile/.test(lower)) return ["Online and Social Media Crime", "Impersonation / Cheating"] as const;
-  if (/apk|remote access|screen share|anydesk/.test(lower)) return ["Cyber Attack", "Malware / Remote Access"] as const;
-  return ["Online Financial Fraud", "Other Online Financial Fraud"] as const;
+  if (lower.includes("prime alpha returns") || lower.includes("426082716421")) return "meena";
+  if (lower.includes("powerhelp@oksbi") || lower.includes("quickbillsupport.apk")) return "arjun";
+  if (lower.includes("custody-check.in") || lower.includes("426081522047")) return "priya";
+  return null;
 }
 
-export function analyzeNarrative(input: string): IntakeAnalysis {
+export function extractEntities(input: string): ExtractedEntity[] {
+  const entities: ExtractedEntity[] = [];
+  for (const match of input.matchAll(moneyPattern)) {
+    const amount = normalizeAmount(match[1], match[2]);
+    entities.push(entity("amount", "Amount", `₹${amount.toLocaleString("en-IN")}`, entities.length));
+  }
+  unique(input.match(upiPattern) ?? []).forEach((value) => entities.push(entity("upi", "UPI ID", value, entities.length)));
+  unique(input.match(utrPattern) ?? []).forEach((value) => entities.push(entity("utr", "UTR", value, entities.length)));
+  unique(input.match(phonePattern) ?? []).forEach((value) => entities.push(entity("phone", "Phone number", value.replace(/\D/g, "").slice(-10), entities.length)));
+  unique(input.match(urlPattern) ?? []).filter((value) => !value.includes("@")).forEach((value) => entities.push(entity("url", "Web address", value.replace(/[.,!?]+$/, ""), entities.length)));
+  unique(input.match(handlePattern) ?? []).forEach((value) => entities.push(entity("handle", "Account handle", value, entities.length)));
+  return entities;
+}
+
+export function analyzeNarrative(input: string, requestedScenario?: ScenarioId, now = Date.now()): IntakeAnalysis {
   const text = input.trim();
-  const lower = text.toLowerCase();
-  const scenario = lower.includes("prime alpha") || lower.includes("4,20,000")
-    ? "meena"
-    : lower.includes("electricity") || lower.includes("powerhelp@oksbi")
-      ? "arjun"
-      : lower.includes("digital arrest") || lower.includes("safe account")
-        ? "priya"
-        : null;
+  const scenarioId = requestedScenario ?? detectScenario(text);
+  if (scenarioId) return buildScenario(scenarioId, now);
 
-  const [category, subcategory] = classify(text);
-  const fields: ExtractedField[] = [];
-  for (const match of text.matchAll(moneyPattern)) fields.push(field("Amount", `₹${normalizeAmount(match[1], match[2]).toLocaleString("en-IN")}`, "amount"));
-  unique(text.match(upiPattern) ?? []).forEach((value) => fields.push(field("UPI ID", value, "upi")));
-  unique(text.match(phonePattern) ?? []).forEach((value) => fields.push(field("Phone number", value, "phone")));
-  unique(text.match(utrPattern) ?? []).filter((value) => /\d/.test(value) && value.length >= 12).forEach((value) => fields.push(field("Payment reference", value, "utr")));
-  unique(text.match(urlPattern) ?? []).filter((value) => !value.includes("@") && !/^\d/.test(value)).forEach((value) => fields.push(field("Web address", value, "url")));
-  unique(text.match(handlePattern) ?? []).forEach((value) => fields.push(field("Account handle", value, "handle")));
-
-  const summaries = {
-    meena: "A WhatsApp trading group induced repeated transfers and demanded another payment to release fabricated returns.",
-    arjun: "A caller used an urgent electricity-disconnection threat to induce a UPI payment and APK installation.",
-    priya: "Callers impersonated investigators, used digital-arrest coercion, and directed a NEFT transfer to a claimed safe account.",
-  } as const;
+  const rule = classificationRules.find((item) => item.pattern.test(text)) ?? {
+    id: "other",
+    category: "Online Financial Fraud",
+    subcategory: "Other Online Financial Fraud",
+    note: "No single taxonomy clue was strong enough; the citizen can correct this draft.",
+  };
+  const entities = extractEntities(text);
+  const amount = entities.find((item) => item.kind === "amount")?.value;
+  const paymentIdentifier = entities.find((item) => item.kind === "upi" || item.kind === "utr")?.value;
+  const confidence = Math.min(92, 68 + (rule.id === "other" ? 0 : 12) + Math.min(12, entities.length * 3));
 
   return {
-    category,
-    subcategory,
-    confidence: scenario ? 96 : fields.length >= 2 ? 86 : 72,
-    summary: scenario ? summaries[scenario] : "The account describes a suspected cyber-enabled financial deception. Confirm the extracted facts before adding them to the complaint.",
-    fields,
-    matchedBy: scenario ? "demo-scenario" : "local-rules",
+    category: rule.category,
+    subcategory: rule.subcategory,
+    confidence,
+    confidenceNotes: [rule.note, entities.length ? `${entities.length} identifier${entities.length === 1 ? " was" : "s were"} extracted with fixed local patterns.` : "No payment identifier was found; the report can still continue.", "This is a deterministic suggestion. The citizen remains in control."],
+    summary: `The account describes suspected ${rule.subcategory.toLowerCase()}${amount ? ` involving ${amount}` : ""}. Confirm each detail before it enters the complaint.`,
+    entities,
+    timeline: [
+      { id: "event-contact", occurredAt: relativeIso(now, -120), title: "Suspicious contact or activity", detail: "The citizen's account begins here. Edit the time and wording if needed." },
+      ...(amount || paymentIdentifier ? [{ id: "event-payment", occurredAt: relativeIso(now, -60), title: "Money or identifier shared", detail: [amount, paymentIdentifier].filter(Boolean).join(" · ") }] : []),
+      { id: "event-report", occurredAt: relativeIso(now, 0), title: "Report being prepared", detail: "Facts extracted locally and waiting for citizen confirmation." },
+    ],
+    matchedBy: "keyword-rules",
   };
+}
+
+export function getMockOcrEntities(analysis: IntakeAnalysis | null) {
+  if (!analysis) return [];
+  return analysis.entities
+    .filter((item) => item.kind === "utr" || item.kind === "upi")
+    .map((item, index) => ({ ...item, id: `ocr-${item.id}-${index}`, source: "mock-ocr" as const }));
 }

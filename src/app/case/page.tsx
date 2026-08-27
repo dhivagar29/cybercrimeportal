@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { getLiveComplaints } from "@/lib/mock/fixtures";
+import { SubmittedCases } from "@/components/submitted-cases";
 
 const stageLabel = { filed: 'Filed', routed: 'Routed to district', assigned: 'Assigned to IO', hold_placed: 'Hold placed', fir_linked: 'FIR linked', custody_applied: 'Interim custody applied', restored: 'Money restored' } as const;
 
@@ -13,6 +14,7 @@ export default function CasePage() {
       <p className="eyebrow">Live case file</p>
       <h1 className="page-title">Know what is happening.</h1>
       <p className="lede">“Disposed” can mean handed to police, not resolved. Here, each operational and legal step is named.</p>
+      <SubmittedCases />
       <div className="mt-6 grid gap-3">
         {complaints.map((complaint) => (
           <article className="panel grid gap-3 md:grid-cols-[1fr_auto] md:items-center" key={complaint.id}>
