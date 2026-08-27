@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowRight, PhoneCall, Search } from "lucide-react";
 import { Metric } from "@/components/metric";
+import { StartHoldLink } from "@/components/start-hold-link";
 import { citizens } from "@/lib/fixtures";
 
 export default function HomePage() {
@@ -12,7 +13,7 @@ export default function HomePage() {
           <h1 className="page-title">Have you lost money?</h1>
           <p className="lede">These scams are engineered to work on anyone. You did not cause this. Start with the money trail—we will build the complaint after.</p>
           <div className="mt-6 grid gap-3 sm:grid-cols-2">
-            <Link className="button-primary" href="/report">Yes — stop the money <ArrowRight aria-hidden="true" size={20} /></Link>
+            <StartHoldLink className="button-primary">Yes — stop the money <ArrowRight aria-hidden="true" size={20} /></StartHoldLink>
             <Link className="button-secondary" href="/check">No — check something first <Search aria-hidden="true" size={20} /></Link>
           </div>
           <p className="mt-4 flex items-start gap-2 text-sm leading-5 text-[#52606d]"><PhoneCall aria-hidden="true" className="mt-0.5 shrink-0" size={17} /> In a real emergency, call the official helpline <strong className="text-[#101d2b]">1930</strong>. This prototype does not place calls or reports.</p>
@@ -50,7 +51,7 @@ export default function HomePage() {
 
       <section className="panel bg-[#eaf6f2] md:flex md:items-center md:justify-between md:gap-6">
         <div><p className="eyebrow text-[#08745c]">The thesis</p><h2 className="my-2 text-2xl leading-tight">cybercrime.gov.in is designed to receive a complaint. This is designed to get your money back.</h2></div>
-        <Link className="button-primary mt-4 shrink-0 md:mt-0" href="/report">Start the 90-second flow <ArrowRight aria-hidden="true" size={20} /></Link>
+        <StartHoldLink direct className="button-primary mt-4 shrink-0 md:mt-0">Start the 90-second flow <ArrowRight aria-hidden="true" size={20} /></StartHoldLink>
       </section>
     </div>
   );
