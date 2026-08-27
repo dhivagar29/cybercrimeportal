@@ -47,7 +47,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </Link>
           <div className="flex items-center gap-2">
             <button aria-label="Demo: English only" className="button-quiet px-2 text-xs" type="button" disabled title="Language switching is outside this demo"><Languages aria-hidden="true" size={16} /><span className="sm:hidden">EN</span><span className="hidden sm:inline">Demo: English only</span></button>
-            <button suppressHydrationWarning className="button-quiet" type="button" onClick={toggleLargeType} aria-pressed={largeType}>
+            <button suppressHydrationWarning aria-label="Large type" className="button-quiet" type="button" onClick={toggleLargeType} aria-pressed={largeType}>
               <span aria-hidden="true" className="text-lg font-black">Aa</span>
               <span className="hidden sm:inline">Large type</span>
             </button>
