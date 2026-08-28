@@ -17,10 +17,12 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { ParallelActionChecklist } from "@/components/parallel-action-checklist";
 import { analyzeNarrative, cannedScenarios, getMockOcrEntities, scenarioIds, type EntityKind, type IntakeAnalysis, type ScenarioId } from "@/lib/engine";
 import { readMockSession } from "@/lib/auth";
 import { GOLDEN_HOUR_REPORT_KEY, type GoldenHourTicket } from "@/lib/golden-hour";
 import { findPersona } from "@/lib/mock/personas";
+import { banks, complaintFixtures } from "@/lib/mock/fixtures";
 import type { DemoPersona } from "@/lib/mock/types";
 import {
   makeAcknowledgement,
@@ -82,6 +84,7 @@ export function ReportBuilder() {
   const [hasSavedDraft, setHasSavedDraft] = useState(false);
   const [persona, setPersona] = useState<DemoPersona | undefined>();
   const [golden, setGolden] = useState<GoldenHourTicket | null>(null);
+  const [busy, setBusy] = useState<"analyzing" | "filing" | null>(null);
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
@@ -115,9 +118,12 @@ export function ReportBuilder() {
     patchDraft({ narrative, analysis: analyzeNarrative(narrative, id), step: "understood" });
   }
 
-  function runEngine() {
+  async function runEngine() {
     if (!draft.narrative.trim()) return;
+    setBusy("analyzing");
+    await new Promise((resolve) => window.setTimeout(resolve, 550));
     patchDraft({ analysis: analyzeNarrative(draft.narrative), step: "understood" });
+    setBusy(null);
   }
 
   function updateAnalysis(next: IntakeAnalysis) {
@@ -143,8 +149,10 @@ export function ReportBuilder() {
     setActive(true);
   }
 
-  function submitCase() {
+  async function submitCase() {
     if (!draft.form || !draft.analysis) return;
+    setBusy("filing");
+    await new Promise((resolve) => window.setTimeout(resolve, 700));
     const acknowledgement = makeAcknowledgement();
     const submitted: SubmittedCitizenCase = {
       acknowledgement,
@@ -161,6 +169,7 @@ export function ReportBuilder() {
     const existing = safeParse<SubmittedCitizenCase[]>(window.localStorage.getItem(SUBMITTED_CASES_KEY)) ?? [];
     window.localStorage.setItem(SUBMITTED_CASES_KEY, JSON.stringify([submitted, ...existing.filter((item) => item.acknowledgement !== acknowledgement)]));
     patchDraft({ acknowledgement, step: "submitted" });
+    setBusy(null);
   }
 
   if (!hydrated) return <div className="panel" role="status"><strong>Checking this device for a saved report…</strong></div>;
@@ -179,15 +188,18 @@ export function ReportBuilder() {
   }
 
   if (draft.step === "submitted" && draft.acknowledgement) {
-    return <Acknowledgement acknowledgement={draft.acknowledgement} onNew={resetDraft} />;
+    const personaComplaint = complaintFixtures.find((item) => item.citizenId === persona?.id);
+    const actionBank = banks.find((item) => item.id === golden?.bankId) ?? banks.find((item) => item.id === personaComplaint?.sourceBankId) ?? banks[0];
+    const incidentAt = golden?.occurredAt ?? (draft.form?.incidentDateTime ? new Date(draft.form.incidentDateTime).toISOString() : draft.analysis?.timeline[0]?.occurredAt ?? draft.updatedAt);
+    return <Acknowledgement acknowledgement={draft.acknowledgement} incidentAt={incidentAt} bankName={actionBank.name} fraudLine={actionBank.fraudLine} scopeId={golden ? `journey-${golden.reference}` : `report-${draft.acknowledgement}`} onNew={resetDraft} />;
   }
 
   return (
     <div className="grid gap-5">
       <Progress step={draft.step} />
-      {draft.step === "intake" ? <IntakeStep draft={draft} onNarrative={(narrative) => patchDraft({ narrative, analysis: null })} onScenario={loadScenario} onEvidence={handleEvidence} onAnalyze={runEngine} /> : null}
+      {draft.step === "intake" ? <IntakeStep draft={draft} analyzing={busy === "analyzing"} onNarrative={(narrative) => patchDraft({ narrative, analysis: null })} onScenario={loadScenario} onEvidence={handleEvidence} onAnalyze={runEngine} /> : null}
       {draft.step === "understood" && draft.analysis ? <UnderstandingStep narrative={draft.narrative} analysis={draft.analysis} evidenceNames={draft.evidenceNames} onChange={updateAnalysis} onEvidence={handleEvidence} onBack={() => patchDraft({ step: "intake" })} onContinue={continueToForm} /> : null}
-      {draft.step === "form" && draft.form ? <StatutoryForm form={draft.form} touchedFields={draft.touchedFields} onChange={(form, field) => patchDraft({ form, touchedFields: [...new Set([...draft.touchedFields, field])] })} onBack={() => patchDraft({ step: "understood" })} onSubmit={submitCase} /> : null}
+      {draft.step === "form" && draft.form ? <StatutoryForm form={draft.form} submitting={busy === "filing"} touchedFields={draft.touchedFields} onChange={(form, field) => patchDraft({ form, touchedFields: [...new Set([...draft.touchedFields, field])] })} onBack={() => patchDraft({ step: "understood" })} onSubmit={submitCase} /> : null}
       <p className="m-0 text-center text-xs leading-5 text-[var(--muted)]">Saved locally as you work. Deterministic rules only—no text, image, or identifier leaves this browser.</p>
     </div>
   );
@@ -199,7 +211,7 @@ function Progress({ step }: { step: AssistedReportDraft["step"] }) {
   return <ol className="grid grid-cols-3 gap-1 p-0" aria-label="Report progress">{steps.map((item, index) => <li className={`min-h-12 border-2 px-2 py-2 text-center text-sm font-black ${index <= current ? "border-[var(--primary)] bg-[var(--primary)] text-white" : "border-[var(--line)] bg-white text-[var(--muted)]"}`} key={item.id} aria-current={index === current ? "step" : undefined}>{index + 1}. {item.label}</li>)}</ol>;
 }
 
-function IntakeStep({ draft, onNarrative, onScenario, onEvidence, onAnalyze }: { draft: AssistedReportDraft; onNarrative: (value: string) => void; onScenario: (id: ScenarioId) => void; onEvidence: (files: FileList | null) => void; onAnalyze: () => void }) {
+function IntakeStep({ draft, analyzing, onNarrative, onScenario, onEvidence, onAnalyze }: { draft: AssistedReportDraft; analyzing: boolean; onNarrative: (value: string) => void; onScenario: (id: ScenarioId) => void; onEvidence: (files: FileList | null) => void; onAnalyze: () => void }) {
   return (
     <section className="panel" aria-labelledby="intake-heading">
       <p className="eyebrow">Build the case · no taxonomy needed</p>
@@ -208,7 +220,7 @@ function IntakeStep({ draft, onNarrative, onScenario, onEvidence, onAnalyze }: {
       <label className="mt-5 block"><span className="sr-only">Tell us what happened, in your own words</span><textarea className="field-control min-h-56 resize-y text-lg leading-8" autoFocus required minLength={10} value={draft.narrative} onChange={(event) => onNarrative(event.target.value)} placeholder="I received a call or message… Then I sent… The number or payment ID was…" /></label>
       <div className="mt-5"><p className="field-label">Use a complete demo story</p><div className="grid gap-2 sm:grid-cols-3">{scenarioIds.map((id) => <button className="button-quiet" type="button" key={id} onClick={() => onScenario(id)}>{cannedScenarios[id].chipLabel}</button>)}</div></div>
       <EvidenceUploader names={draft.evidenceNames} analysis={draft.analysis} onEvidence={onEvidence} />
-      <button className="button-primary mt-6 w-full" type="button" disabled={draft.narrative.trim().length < 10} onClick={onAnalyze}><ScanSearch aria-hidden="true" size={22} /> Show me what you understood</button>
+      <button className="button-primary mt-6 w-full" type="button" disabled={draft.narrative.trim().length < 10 || analyzing} onClick={onAnalyze}><ScanSearch aria-hidden="true" size={22} /> {analyzing ? "Reading your account…" : "Show me what you understood"}</button>
     </section>
   );
 }
@@ -250,7 +262,7 @@ function UnderstandingStep({ narrative, analysis, evidenceNames, onChange, onEvi
   );
 }
 
-function StatutoryForm({ form, touchedFields, onChange, onBack, onSubmit }: { form: StatutoryFormDraft; touchedFields: string[]; onChange: (form: StatutoryFormDraft, field: keyof StatutoryFormDraft) => void; onBack: () => void; onSubmit: () => void }) {
+function StatutoryForm({ form, submitting, touchedFields, onChange, onBack, onSubmit }: { form: StatutoryFormDraft; submitting: boolean; touchedFields: string[]; onChange: (form: StatutoryFormDraft, field: keyof StatutoryFormDraft) => void; onBack: () => void; onSubmit: () => void }) {
   function update(field: keyof StatutoryFormDraft, value: string) { onChange({ ...form, [field]: value }, field); }
   const touched = new Set(touchedFields);
   return (
@@ -261,7 +273,7 @@ function StatutoryForm({ form, touchedFields, onChange, onBack, onSubmit }: { fo
       </FormSection>
       <FormSection title="2. Suspect details — optional" icon={<Pencil aria-hidden="true" size={26} />}><div className="border-l-4 border-[var(--safe)] bg-[var(--safe-soft)] p-3"><strong>Don’t know? Skip — this is the police’s job, not yours.</strong><p className="mb-0 mt-1 text-sm leading-6 text-[var(--muted)]">A missing suspect name, photo, or address must not stop the complaint.</p></div><div className="mt-4 grid gap-4 sm:grid-cols-2"><FormField field="suspectName" label="Name, if known" optional form={form} touched={touched} onChange={update} /><FormField field="suspectPhone" label="Phone number, if known" optional form={form} touched={touched} onChange={update} /><FormField field="suspectUpi" label="UPI ID, if known" optional form={form} touched={touched} onChange={update} /><FormField field="suspectUrlOrHandle" label="URL or account handle, if known" optional form={form} touched={touched} onChange={update} /></div><FormField field="suspectAddress" label="Address, if known" optional multiline form={form} touched={touched} onChange={update} /></FormSection>
       <FormSection title="3. Complainant details" icon={<UserRound aria-hidden="true" size={26} />}><div className="grid gap-4 sm:grid-cols-2"><FormField field="complainantName" label="Full name" required form={form} touched={touched} onChange={update} /><FormField field="complainantEmail" label="Email" type="email" required form={form} touched={touched} onChange={update} /><FormField field="complainantPhone" label="Phone number" type="tel" form={form} touched={touched} onChange={update} /><FormField field="complainantAge" label="Age" type="number" form={form} touched={touched} onChange={update} /></div><label className="mt-4 block"><span className="field-label">Who is this complaint for?</span><select className={`field-control ${!touched.has("filedFor") ? "border-[var(--primary)] bg-[var(--blue-soft)]" : ""}`} value={form.filedFor} onChange={(event) => update("filedFor", event.target.value)}><option value="self">Myself</option><option value="relative">A relative</option></select>{!touched.has("filedFor") ? <AutoFilled /> : null}</label></FormSection>
-      <div className="grid gap-3 sm:grid-cols-[auto_1fr]"><button className="button-secondary" type="button" onClick={onBack}><ArrowLeft aria-hidden="true" size={19} /> Check extracted facts</button><button className="button-primary" type="submit"><CheckCircle2 aria-hidden="true" size={21} /> Confirm and file mock complaint</button></div>
+      <div className="grid gap-3 sm:grid-cols-[auto_1fr]"><button className="button-secondary" type="button" disabled={submitting} onClick={onBack}><ArrowLeft aria-hidden="true" size={19} /> Check extracted facts</button><button className="button-primary" type="submit" disabled={submitting}><CheckCircle2 aria-hidden="true" size={21} /> {submitting ? "Recording your mock complaint…" : "Confirm and file mock complaint"}</button></div>
     </form>
   );
 }
@@ -277,6 +289,6 @@ function FormField({ field, label, type = "text", required = false, optional = f
 
 function AutoFilled() { return <span className="mt-1 inline-flex items-center gap-1 text-xs font-black text-[var(--primary)]"><Check aria-hidden="true" size={14} /> We filled this for you — please check</span>; }
 
-function Acknowledgement({ acknowledgement, onNew }: { acknowledgement: string; onNew: () => void }) {
-  return <section className="mx-auto max-w-3xl border-2 border-[#08745c] bg-[#eaf6f2] p-5 sm:p-8" role="status" aria-labelledby="ack-heading"><CheckCircle2 aria-hidden="true" className="text-[#08745c]" size={48} /><p className="eyebrow mt-5 text-[#075a49]">Mock complaint filed</p><h2 id="ack-heading" className="m-0 mt-2 text-3xl">Your account has been recorded.</h2><p className="mt-4 leading-7">Acknowledgement number</p><strong className="block break-all bg-white p-4 font-mono text-2xl">{acknowledgement}</strong><p className="mt-4 text-sm leading-6 text-[var(--muted)]">This is a complaint acknowledgement, not an FIR. It is stored only on this device and now appears in the mock case list.</p><div className="mt-6 grid gap-3 sm:grid-cols-2"><Link className="button-primary" href="/case">Open the case file <ArrowRight aria-hidden="true" size={20} /></Link><button className="button-secondary" type="button" onClick={onNew}><RotateCcw aria-hidden="true" size={19} /> File another mock complaint</button></div></section>;
+function Acknowledgement({ acknowledgement, incidentAt, bankName, fraudLine, scopeId, onNew }: { acknowledgement: string; incidentAt: string; bankName: string; fraudLine: string; scopeId: string; onNew: () => void }) {
+  return <div className="mx-auto grid max-w-3xl gap-5"><section className="border-2 border-[#08745c] bg-[#eaf6f2] p-5 sm:p-8" role="status" aria-labelledby="ack-heading"><CheckCircle2 aria-hidden="true" className="text-[#08745c]" size={48} /><p className="eyebrow mt-5 text-[#075a49]">Mock complaint filed</p><h2 id="ack-heading" className="m-0 mt-2 text-3xl">Your account has been recorded.</h2><p className="mt-4 leading-7">Acknowledgement number</p><strong className="block break-all bg-white p-4 font-mono text-2xl">{acknowledgement}</strong><p className="mt-4 text-sm leading-6 text-[var(--muted)]">This is a complaint acknowledgement, not an FIR. It is stored only on this device and now appears in the mock case list.</p></section><ParallelActionChecklist scopeId={scopeId} incidentAt={incidentAt} bankName={bankName} fraudLine={fraudLine} /><div className="grid gap-3 sm:grid-cols-3"><Link className="button-primary" href="/case">Open the case file <ArrowRight aria-hidden="true" size={20} /></Link><Link className="button-secondary" href="/scam-check">Check suspect ID</Link><button className="button-secondary" type="button" onClick={onNew}><RotateCcw aria-hidden="true" size={19} /> File another report</button></div></div>;
 }

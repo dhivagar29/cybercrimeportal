@@ -7,7 +7,6 @@ import {
   Check,
   CheckCircle2,
   Clock3,
-  PhoneCall,
   Search,
   ShieldAlert,
 } from "lucide-react";
@@ -24,6 +23,7 @@ import {
   type WhenChoice,
 } from "@/lib/golden-hour";
 import { banks } from "@/lib/mock/banks";
+import { ParallelActionChecklist } from "@/components/parallel-action-checklist";
 
 type FlowStep = 0 | 1 | 2 | 3;
 
@@ -56,6 +56,7 @@ export function GoldenHourFlow() {
   const [now, setNow] = useState(0);
   const [ticket, setTicket] = useState<GoldenHourTicket | null>(null);
   const [showInterrupt, setShowInterrupt] = useState(false);
+  const [holding, setHolding] = useState(false);
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
@@ -91,8 +92,10 @@ export function GoldenHourFlow() {
     setStep(3);
   }
 
-  function submitHold() {
+  async function submitHold() {
     if (!amount || !whenChoice || !occurredAt || !paymentMethod || !selectedBank || !startedAt) return;
+    setHolding(true);
+    await new Promise((resolve) => window.setTimeout(resolve, 650));
     const requestedAt = Date.now();
     const nextTicket: GoldenHourTicket = {
       amount: Number(amount),
@@ -109,6 +112,7 @@ export function GoldenHourFlow() {
     window.localStorage.setItem(GOLDEN_HOUR_TICKET_KEY, JSON.stringify(nextTicket));
     window.localStorage.setItem(GOLDEN_HOUR_REPORT_KEY, JSON.stringify(nextTicket));
     setTicket(nextTicket);
+    setHolding(false);
   }
 
   if (showInterrupt) {
@@ -156,18 +160,9 @@ export function GoldenHourFlow() {
           <p className="mb-0 mt-4 text-sm leading-6"><strong>Prototype:</strong> this is a saved mock CFCFRMS ticket. No bank or government system was contacted.</p>
         </div>
 
-        <section className="panel" aria-labelledby="right-now-heading">
-          <h2 id="right-now-heading" className="mt-0 text-2xl">Do these 3 things right now</h2>
-          <ol className="grid list-none gap-3 p-0">
-            <ActionItem number={1} icon={<PhoneCall aria-hidden="true" size={21} />} title="Call 1930" detail="Tell them you already have this mock reference and need an urgent financial-fraud report." />
-            <ActionItem number={2} icon={<PhoneCall aria-hidden="true" size={21} />} title={`Call ${ticket.bankName}`} detail={`Mock fraud line: ${selectedBank.fraudLine}. Use the official number in a real emergency.`} />
-            <ActionItem number={3} icon={<Check aria-hidden="true" size={21} />} title="Keep every chat and screenshot" detail="Do not delete messages, call logs, payment receipts, or profile details." />
-          </ol>
-        </section>
+        <ParallelActionChecklist scopeId={`journey-${ticket.reference}`} incidentAt={ticket.occurredAt} bankName={ticket.bankName} fraudLine={selectedBank.fraudLine} />
 
-        <Link className="button-primary w-full" href="/report">
-          Now build your case <ArrowRight aria-hidden="true" size={21} />
-        </Link>
+        <div className="grid gap-3 sm:grid-cols-[1fr_auto]"><Link className="button-primary w-full" href="/report">Now build your case <ArrowRight aria-hidden="true" size={21} /></Link><Link className="button-secondary" href="/scam-check">Check a suspect ID</Link></div>
       </section>
     );
   }
@@ -243,7 +238,7 @@ export function GoldenHourFlow() {
                 </button>
               )) : <p className="m-0 p-4 text-[var(--muted)]">No match. Try the bank name or payment app.</p>}
             </div>
-            <button className="button-primary mt-5 w-full" type="button" disabled={!bankId} onClick={submitHold}><BanknoteArrowDown aria-hidden="true" size={22} /> Send mock hold request</button>
+            <button className="button-primary mt-5 w-full" type="button" disabled={!bankId || holding} onClick={submitHold}><BanknoteArrowDown aria-hidden="true" size={22} /> {holding ? "Contacting the mock bank…" : "Send mock hold request"}</button>
             <BackButton onClick={() => setStep(2)} />
           </div>
         ) : null}
@@ -264,13 +259,4 @@ function ElapsedClock({ seconds }: { seconds: number }) {
 
 function BackButton({ onClick }: { onClick: () => void }) {
   return <button className="mt-5 inline-flex min-h-12 items-center gap-2 px-1 font-bold text-[var(--primary)] underline decoration-2 underline-offset-4" type="button" onClick={onClick}><ArrowLeft aria-hidden="true" size={20} /> Back</button>;
-}
-
-function ActionItem({ number, icon, title, detail }: { number: number; icon: React.ReactNode; title: string; detail: string }) {
-  return (
-    <li className="grid grid-cols-[2.5rem_1fr] gap-3 border-2 border-[var(--border)] bg-white p-3">
-      <span className="grid size-10 place-items-center bg-[var(--primary)] text-white" aria-label={`Step ${number}`}>{icon}</span>
-      <div><strong className="block text-lg">{title}</strong><p className="m-0 mt-1 text-sm leading-6 text-[var(--muted)]">{detail}</p></div>
-    </li>
-  );
 }

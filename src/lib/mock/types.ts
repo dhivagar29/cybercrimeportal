@@ -73,6 +73,8 @@ export interface SuspectIdentifier {
   value: string;
   reports: number;
   lastSeenOffsetDays: number;
+  pattern?: string;
+  firstSeen?: string;
 }
 
 export interface LiveComplaint extends Omit<ComplaintFixture, "occurredOffsetMinutes" | "reportedOffsetMinutes" | "stageStartedOffsetMinutes"> {

@@ -22,6 +22,7 @@ body { margin: 0; min-height: 100vh; background: var(--paper); font-family: var(
 a { color: inherit; }
 button, input, select, textarea { font: inherit; }
 button, a, input, select, textarea { outline-offset: 4px; }
+button:disabled { cursor: not-allowed; opacity: 0.72; }
 :focus-visible { outline: 4px solid var(--focus); }
 ::selection { background: #ffe8a3; color: var(--ink); }
 .skip-link { position: fixed; left: 1rem; top: -6rem; z-index: 100; border: 3px solid var(--ink); background: white; padding: 0.75rem 1rem; font-weight: 800; }
@@ -42,6 +43,7 @@ button, a, input, select, textarea { outline-offset: 4px; }
 .button-quiet:disabled { cursor: not-allowed; opacity: 0.72; }
 .button-alert { border-color: var(--alert-dark); background: var(--alert); color: white; }
 .button-alert:hover { background: var(--alert-dark); }
+.button-primary, .button-secondary, .button-quiet, .button-alert, .status-pill { overflow-wrap: anywhere; }
 .golden-hour .button-primary { border-color: var(--alert-dark); background: var(--alert); }
 .golden-hour .button-primary:hover { background: var(--alert-dark); }
 .golden-hour .eyebrow { color: var(--alert-dark); }

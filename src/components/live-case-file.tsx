@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { ParallelActionChecklist } from "@/components/parallel-action-checklist";
 import {
   caseDocumentTypes,
   documentMeta,
@@ -31,6 +32,7 @@ import {
 } from "@/lib/case-trust";
 import { formatGoldenHourDuration, GOLDEN_HOUR_TICKET_KEY, type GoldenHourTicket } from "@/lib/golden-hour";
 import type { BankFixture, LiveComplaint } from "@/lib/mock/types";
+import { caseSuspectQueries } from "@/lib/mock/scamdb";
 
 const DAY = 86_400_000;
 const HOUR = 3_600_000;
@@ -68,6 +70,7 @@ export function LiveCaseFile({ complaint, trustCase, banks }: { complaint: LiveC
   const [saved, setSaved] = useState<SavedTrustState>(() => initialState(trustCase));
   const [now, setNow] = useState(0);
   const [goldenTicket, setGoldenTicket] = useState<GoldenHourTicket | null>(null);
+  const [actionBusy, setActionBusy] = useState<"dgo" | null>(null);
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
@@ -101,6 +104,7 @@ export function LiveCaseFile({ complaint, trustCase, banks }: { complaint: LiveC
   const sgoDeadline = saved.dgoEscalatedAt ? new Date(saved.dgoEscalatedAt).getTime() + 15 * DAY : null;
   const directCustody = complaint.amount < 50_000;
   const bankById = new Map(banks.map((bank) => [bank.id, bank]));
+  const sourceBank = bankById.get(complaint.sourceBankId) ?? banks[0];
 
   function persist(next: SavedTrustState) {
     window.localStorage.setItem(storageKey, JSON.stringify(next));
@@ -115,13 +119,16 @@ export function LiveCaseFile({ complaint, trustCase, banks }: { complaint: LiveC
     persist({ ...saved, stage: nextStage, stageStartedAt: occurredAt, activities: [...saved.activities, activity] });
   }
 
-  function escalateToDgo() {
+  async function escalateToDgo() {
+    setActionBusy("dgo");
+    await new Promise((resolve) => window.setTimeout(resolve, 650));
     const occurredAt = new Date().toISOString();
     const missed = historicalBreach?.title ?? `${stageMeta.slaLabel} expired`;
     const note = `To: District Grievance Officer, ${complaint.district}\nSubject: SLA escalation — NCRP ${complaint.id}\n\nThe ${missed.toLowerCase()} in the complaint of ₹${complaint.amount.toLocaleString("en-IN")}. The citizen requests a dated action-taken note, confirmation of all active bank holds, and the next accountable officer.\n\nAssigned IO: ${trustCase.officer.name}, ${trustCase.officer.designation}\nThis is a generated mock escalation; it has not been sent.`;
     const nextStage = nextTrustStage(stage, complaint.amount) ?? stage;
     const activity: CaseActivity = { id: `dgo-${Date.now()}`, type: "escalation", title: "Escalated to District Grievance Officer", detail: `${missed}. Mock note generated; case advanced to ${trustStageMeta[nextStage].label}.`, occurredAt };
     persist({ ...saved, stage: nextStage, stageStartedAt: occurredAt, dgoEscalatedAt: occurredAt, dgoNote: note, activities: [...saved.activities, activity] });
+    setActionBusy(null);
   }
 
   function appealToSgo() {
@@ -156,13 +163,16 @@ export function LiveCaseFile({ complaint, trustCase, banks }: { complaint: LiveC
       <StateMachine stage={stage} directCustody={directCustody} officerName={trustCase.officer.name} />
       <SlaLadder />
 
-      {historicalBreach || currentStageBreached || saved.dgoEscalatedAt ? <EscalationPanel complaint={complaint} breach={historicalBreach} currentStageBreached={currentStageBreached} saved={saved} sgoDeadline={sgoDeadline} now={now} hasActionableBreach={hasActionableBreach} onEscalate={escalateToDgo} onAppeal={appealToSgo} /> : null}
+      {historicalBreach || currentStageBreached || saved.dgoEscalatedAt ? <EscalationPanel complaint={complaint} breach={historicalBreach} currentStageBreached={currentStageBreached} saved={saved} sgoDeadline={sgoDeadline} now={now} hasActionableBreach={hasActionableBreach} escalating={actionBusy === "dgo"} onEscalate={escalateToDgo} onAppeal={appealToSgo} /> : null}
+
+      <ParallelActionChecklist scopeId={goldenTicket ? `journey-${goldenTicket.reference}` : `case-${complaint.id}`} incidentAt={complaint.occurredAt} bankName={sourceBank?.name ?? "your bank"} fraudLine={sourceBank?.fraudLine ?? "use the verified number on your bank card"} />
 
       <RestorationTracker complaint={complaint} trustCase={trustCase} stage={stage} holdTotal={holdTotal} banks={bankById} directCustody={directCustody} stageDeadline={stage === "restoration_in_progress" ? stageDeadline : null} now={now} onDocument={recordDocument} />
 
       {holdExpiry && holdWarningAt && stage !== "closed" ? <HoldExpiryPanel expiry={holdExpiry} warningAt={holdWarningAt} remaining={holdRemaining ?? 0} now={now} /> : null}
 
       <DocumentsPanel complaintId={complaint.id} onDocument={recordDocument} />
+      <section className="panel bg-[var(--blue-soft)]" aria-labelledby="case-tools-heading"><p className="eyebrow">Next citizen tools</p><h2 id="case-tools-heading" className="m-0 mt-1 text-2xl">Check a new clue or add to the account.</h2><div className="mt-4 grid gap-3 sm:grid-cols-2"><Link className="button-primary" href={`/scam-check?q=${encodeURIComponent(caseSuspectQueries[complaint.id] ?? "")}`}>Check suspect identifier <ArrowRight aria-hidden="true" size={18} /></Link><Link className="button-secondary" href="/report">Add another report detail</Link></div></section>
       <Timeline events={timeline} />
 
       <section className="border-2 border-dashed border-[var(--line-strong)] bg-white p-4"><p className="eyebrow">Demo control</p><h2 className="mt-1 text-xl">Walk the citizen-visible state.</h2><p className="text-sm leading-6 text-[var(--muted)]">This simulates actions by police, banks, and courts. It is not an admin interface.</p><div className="flex flex-wrap gap-3">{nextTrustStage(stage, complaint.amount) ? <button className="button-primary" type="button" onClick={advance}>Advance to {trustStageMeta[nextTrustStage(stage, complaint.amount)!].label} <ArrowRight aria-hidden="true" size={18} /></button> : <span className="status-pill text-[#08745c]">Case path complete</span>}<button className="button-quiet" type="button" onClick={reset}><RotateCcw aria-hidden="true" size={18} /> Reset this case</button></div></section>
@@ -191,9 +201,9 @@ function SlaLadder() {
   return <section className="panel bg-[var(--blue-soft)]" aria-labelledby="sla-ladder-heading"><p className="eyebrow">Accountability ladder</p><h2 id="sla-ladder-heading" className="m-0 mt-1 text-2xl">A missed deadline creates your next action.</h2><dl className="mt-4 grid gap-px bg-[var(--line-strong)] sm:grid-cols-2">{steps.map(([label, value]) => <div className="bg-white p-3" key={label}><dt className="text-sm font-black">{label}</dt><dd className="m-0 mt-1 text-sm leading-5 text-[var(--muted)]">{value}</dd></div>)}</dl></section>;
 }
 
-function EscalationPanel({ complaint, breach, currentStageBreached, saved, sgoDeadline, now, hasActionableBreach, onEscalate, onAppeal }: { complaint: LiveComplaint; breach?: LiveTrustCase["breaches"][number]; currentStageBreached: boolean; saved: SavedTrustState; sgoDeadline: number | null; now: number; hasActionableBreach: boolean; onEscalate: () => void; onAppeal: () => void }) {
+function EscalationPanel({ complaint, breach, currentStageBreached, saved, sgoDeadline, now, hasActionableBreach, escalating, onEscalate, onAppeal }: { complaint: LiveComplaint; breach?: LiveTrustCase["breaches"][number]; currentStageBreached: boolean; saved: SavedTrustState; sgoDeadline: number | null; now: number; hasActionableBreach: boolean; escalating: boolean; onEscalate: () => void; onAppeal: () => void }) {
   const lateness = breach?.completedAt ? new Date(breach.completedAt).getTime() - new Date(breach.dueAt).getTime() : breach && now ? now - new Date(breach.dueAt).getTime() : 0;
-  return <section className="border-2 border-[var(--warning)] bg-[var(--warning-soft)] p-4 sm:p-5" aria-labelledby="escalation-heading"><div className="flex items-start gap-3"><AlertTriangle aria-hidden="true" className="mt-1 shrink-0 text-[var(--warning-dark)]" size={30} /><div><p className="eyebrow text-[var(--warning-dark)]">SLA accountability</p><h2 id="escalation-heading" className="m-0 mt-1 text-2xl">{breach?.title ?? "Current stage SLA breached"}</h2><p className="mb-0 mt-2 text-sm leading-6 text-[var(--muted)]">{breach?.detail ?? "The current accountable actor has crossed the displayed deadline."}</p></div></div>{breach ? <dl className="mt-4 grid gap-px bg-[#d3a43c] sm:grid-cols-3"><div className="bg-white p-3"><dt className="text-xs font-black uppercase text-[var(--muted)]">Responsible actor</dt><dd className="m-0 mt-1 font-black">{breach.actor}</dd></div><div className="bg-white p-3"><dt className="text-xs font-black uppercase text-[var(--muted)]">SLA due</dt><dd className="m-0 mt-1 font-black">{formatDateTime(breach.dueAt)}</dd></div><div className="bg-white p-3"><dt className="text-xs font-black uppercase text-[var(--muted)]">Delay recorded</dt><dd className="m-0 mt-1 font-mono font-black">{formatCountdown(lateness)}</dd></div></dl> : null}{hasActionableBreach ? <button className="button-primary mt-5 w-full sm:w-auto" type="button" onClick={onEscalate}><ShieldAlert aria-hidden="true" size={20} /> Escalate to District Grievance Officer</button> : null}{saved.dgoNote ? <div className="mt-5 border-2 border-[#08745c] bg-white p-4"><span className="status-pill text-[#08745c]">DGO escalation recorded</span><pre className="mt-3 whitespace-pre-wrap font-sans text-sm leading-6">{saved.dgoNote}</pre>{sgoDeadline ? <div className="mt-4 border-t border-[var(--line)] pt-4"><strong>State Grievance Officer appeal window</strong><p className="mb-0 mt-1 text-sm">Deadline: {formatDateTime(sgoDeadline)} · {now <= sgoDeadline ? `${formatCountdown(sgoDeadline - now)} remaining` : `${formatCountdown(now - sgoDeadline)} overdue`}</p>{!saved.sgoAppealedAt ? <button className="button-secondary mt-3" type="button" onClick={onAppeal}><Scale aria-hidden="true" size={19} /> Prepare SGO appeal</button> : <p className="mb-0 mt-3 font-black text-[#08745c]">SGO appeal prepared within the 15-day window.</p>}</div> : null}</div> : null}{currentStageBreached && !breach ? <p className="mb-0 mt-3 text-xs">Complaint {complaint.id} remains eligible for DGO escalation while this stage is overdue.</p> : null}</section>;
+  return <section className="border-2 border-[var(--warning)] bg-[var(--warning-soft)] p-4 sm:p-5" aria-labelledby="escalation-heading"><div className="flex items-start gap-3"><AlertTriangle aria-hidden="true" className="mt-1 shrink-0 text-[var(--warning-dark)]" size={30} /><div><p className="eyebrow text-[var(--warning-dark)]">SLA accountability</p><h2 id="escalation-heading" className="m-0 mt-1 text-2xl">{breach?.title ?? "Current stage SLA breached"}</h2><p className="mb-0 mt-2 text-sm leading-6 text-[var(--muted)]">{breach?.detail ?? "The current accountable actor has crossed the displayed deadline."}</p></div></div>{breach ? <dl className="mt-4 grid gap-px bg-[#d3a43c] sm:grid-cols-3"><div className="bg-white p-3"><dt className="text-xs font-black uppercase text-[var(--muted)]">Responsible actor</dt><dd className="m-0 mt-1 font-black">{breach.actor}</dd></div><div className="bg-white p-3"><dt className="text-xs font-black uppercase text-[var(--muted)]">SLA due</dt><dd className="m-0 mt-1 font-black">{formatDateTime(breach.dueAt)}</dd></div><div className="bg-white p-3"><dt className="text-xs font-black uppercase text-[var(--muted)]">Delay recorded</dt><dd className="m-0 mt-1 font-mono font-black">{formatCountdown(lateness)}</dd></div></dl> : null}{hasActionableBreach ? <button className="button-primary mt-5 w-full sm:w-auto" type="button" disabled={escalating} onClick={onEscalate}><ShieldAlert aria-hidden="true" size={20} /> {escalating ? "Preparing the escalation note…" : "Escalate to District Grievance Officer"}</button> : null}{saved.dgoNote ? <div className="mt-5 border-2 border-[#08745c] bg-white p-4"><span className="status-pill text-[#08745c]">DGO escalation recorded</span><pre className="mt-3 whitespace-pre-wrap font-sans text-sm leading-6">{saved.dgoNote}</pre>{sgoDeadline ? <div className="mt-4 border-t border-[var(--line)] pt-4"><strong>State Grievance Officer appeal window</strong><p className="mb-0 mt-1 text-sm">Deadline: {formatDateTime(sgoDeadline)} · {now <= sgoDeadline ? `${formatCountdown(sgoDeadline - now)} remaining` : `${formatCountdown(now - sgoDeadline)} overdue`}</p>{!saved.sgoAppealedAt ? <button className="button-secondary mt-3" type="button" onClick={onAppeal}><Scale aria-hidden="true" size={19} /> Prepare SGO appeal</button> : <p className="mb-0 mt-3 font-black text-[#08745c]">SGO appeal prepared within the 15-day window.</p>}</div> : null}</div> : null}{currentStageBreached && !breach ? <p className="mb-0 mt-3 text-xs">Complaint {complaint.id} remains eligible for DGO escalation while this stage is overdue.</p> : null}</section>;
 }
 
 function RestorationTracker({ complaint, trustCase, stage, holdTotal, banks, directCustody, stageDeadline, now, onDocument }: { complaint: LiveComplaint; trustCase: LiveTrustCase; stage: TrustStage; holdTotal: number; banks: Map<string, BankFixture>; directCustody: boolean; stageDeadline: number | null; now: number; onDocument: (type: CaseDocumentType) => void }) {
