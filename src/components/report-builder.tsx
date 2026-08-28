@@ -44,15 +44,6 @@ const emptyDraft: AssistedReportDraft = {
   updatedAt: "",
 };
 
-const entityLabels: Record<EntityKind, string> = {
-  amount: "Amount",
-  utr: "UTR",
-  upi: "UPI ID",
-  phone: "Phone number",
-  url: "Web address",
-  handle: "Account handle",
-};
-
 function safeParse<T>(value: string | null): T | null {
   if (!value) return null;
   try { return JSON.parse(value) as T; } catch { return null; }

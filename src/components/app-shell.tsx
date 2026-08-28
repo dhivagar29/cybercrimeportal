@@ -36,7 +36,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <>
       <a className="skip-link" href="#main-content">Skip to main content</a>
       <div className="mock-banner">Independent hackathon prototype — not affiliated with I4C/MHA. All data is mock.</div>
-      <header className="border-b-2 border-[var(--primary)] bg-white">
+      <header className="app-header border-b-2 border-[var(--primary)] bg-white">
         <div className="mx-auto flex w-full max-w-[1120px] items-center justify-between gap-2 px-4 py-3 md:px-8">
           <Link href="/" className="flex min-h-12 items-center gap-2 no-underline" aria-label="Reclaim home">
             <span className="hidden size-10 shrink-0 place-items-center bg-[var(--primary)] text-white sm:grid"><ShieldCheck aria-hidden="true" size={23} /></span>
@@ -52,7 +52,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
       <main id="main-content">{children}</main>
-      <nav aria-label="Primary" className="fixed inset-x-0 bottom-0 z-40 border-t-2 border-[var(--primary)] bg-white md:static">
+      <nav aria-label="Primary" className="app-nav fixed inset-x-0 bottom-0 z-40 border-t-2 border-[var(--primary)] bg-white md:static">
         <div className="mx-auto grid w-full max-w-[760px] grid-cols-5">
           {navItems.map(({ href, label, icon: Icon }) => {
             const active = href === "/" ? pathname === href : pathname.startsWith(href);

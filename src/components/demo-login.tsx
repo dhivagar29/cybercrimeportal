@@ -2,22 +2,17 @@
 
 import { ArrowRight, UserRoundCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { writeMockSession } from "@/lib/auth";
 import { findPersonaByCredentials, personas } from "@/lib/mock/personas";
 import type { DemoPersona } from "@/lib/mock/types";
 
-export function DemoLogin() {
+export function DemoLogin({ initialPersonaId }: { initialPersonaId?: string }) {
   const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const initialPersona = personas.find((item) => item.id === initialPersonaId);
+  const [email, setEmail] = useState(initialPersona?.email ?? "");
+  const [password, setPassword] = useState(initialPersona?.password ?? "");
   const [error, setError] = useState("");
-
-  useEffect(() => {
-    const requested = new URLSearchParams(window.location.search).get("persona");
-    const persona = personas.find((item) => item.id === requested);
-    if (persona) { setEmail(persona.email); setPassword(persona.password); }
-  }, []);
 
   function signIn(persona: DemoPersona) {
     writeMockSession(persona.id);

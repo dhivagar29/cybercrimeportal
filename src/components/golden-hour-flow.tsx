@@ -82,7 +82,7 @@ export function GoldenHourFlow() {
 
   function chooseWhen(choice: (typeof whenChoices)[number]) {
     setWhenChoice(choice.id);
-    setOccurredAt(new Date(Date.now() - choice.offsetMinutes * 60_000).toISOString());
+    setOccurredAt(new Date((now || startedAt) - choice.offsetMinutes * 60_000).toISOString());
     setStep(2);
   }
 

@@ -52,3 +52,10 @@ button, a, input, select, textarea { outline-offset: 4px; }
 .field-control:focus-visible { border-color: var(--primary); }
 @media (min-width: 760px) { .page-wrap { padding: 2.5rem 2rem 5rem; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; } }
+@media print {
+  html, body { background: white; font-size: 12pt; }
+  .skip-link, .mock-banner, .app-header, .app-nav, .print-hidden { display: none !important; }
+  .document-page { max-width: none !important; padding: 0 !important; }
+  .document-sheet { border: 0 !important; box-shadow: none !important; padding: 0 !important; }
+  @page { margin: 16mm; size: A4; }
+}
