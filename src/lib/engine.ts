@@ -1,4 +1,5 @@
 import { takedownHarmMeta, type TakedownHarm } from "@/lib/takedown";
+import { wcHarmMeta, type WcHarm } from "@/lib/wc-track";
 
 export type EntityKind = "amount" | "utr" | "upi" | "phone" | "url" | "handle";
 
@@ -55,6 +56,24 @@ export interface SocialNarrativeAnalysis {
   matchedRuleId: SocialClassificationRule["id"] | "selected-harm" | "fallback";
 }
 
+export interface WcClassificationRule {
+  id: "stalking" | "repeated-contact" | "threats" | "minor-involvement" | "ncii" | "sextortion" | "impersonation";
+  pattern: RegExp;
+  harm: WcHarm;
+  note: string;
+}
+
+export interface WcNarrativeAnalysis {
+  category: string;
+  subcategory: string;
+  suggestedHarm: WcHarm;
+  confidence: number;
+  confidenceNotes: string[];
+  summary: string;
+  entities: ExtractedEntity[];
+  matchedRuleId: WcClassificationRule["id"] | "selected-harm" | "fallback";
+}
+
 export const classificationRules: ClassificationRule[] = [
   { id: "investment", pattern: /\b(trading|investment|profit|returns?|crypto|withdrawal|stock tips?)\b/i, category: "Online Financial Fraud", subcategory: "Investment Scam", note: "Investment, trading, profit, or withdrawal language matched." },
   { id: "digital-arrest", pattern: /\b(digital arrest|arrest|cbi|customs|narcotics|safe account|parcel)\b/i, category: "Online Financial Fraud", subcategory: "Digital Arrest", note: "Authority impersonation or digital-arrest coercion matched." },
@@ -98,6 +117,51 @@ export const socialClassificationRules: SocialClassificationRule[] = [
       /\b(fake profile|fake account|pretending(?:\s+(?:to be|as))?|impersonat(?:e|ed|ing|ion)|using my (?:name|photo))\b/i,
     harm: "impersonation",
     note: "Fake-profile or identity-copying language matched impersonation.",
+  },
+];
+
+export const wcClassificationRules: WcClassificationRule[] = [
+  {
+    id: "minor-involvement",
+    pattern: /\b(child|minor|my (?:son|daughter)|student|pupil|under 18|schoolchild)\b/i,
+    harm: "child_safety",
+    note: "Language indicating that a minor is involved matched the child-safety route.",
+  },
+  {
+    id: "ncii",
+    pattern: /\b(morph(?:ed|ing)?|private image|intimate image|shared without (?:my )?consent|posted without (?:my )?consent)\b/i,
+    harm: "ncii_woman",
+    note: "Language about private or morphed images shared without consent matched the NCII route.",
+  },
+  {
+    id: "sextortion",
+    pattern: /\b(blackmail|pay or|threaten(?:ed|ing)? to share|demand(?:ed|ing)? money|sextortion)\b/i,
+    harm: "sextortion_woman",
+    note: "Blackmail or payment-demand language matched the sextortion route.",
+  },
+  {
+    id: "impersonation",
+    pattern: /\b(fake profile|fake account|pretending to be me|using my (?:name|photo)|impersonat(?:e|ed|ing|ion))\b/i,
+    harm: "impersonation_woman",
+    note: "Fake-profile or identity-copying language matched impersonation.",
+  },
+  {
+    id: "repeated-contact",
+    pattern: /\b(keeps? contact(?:ing)?|keeps? messaging|after I blocked|after blocking|new accounts?|different numbers?|won't stop contacting)\b/i,
+    harm: "stalking",
+    note: "Repeated contact after blocking matched the cyber-stalking route.",
+  },
+  {
+    id: "stalking",
+    pattern: /\b(stalk(?:ing|ed)?|following me online|monitoring my account|watching my profile)\b/i,
+    harm: "stalking",
+    note: "Language about persistent online monitoring or stalking matched the cyber-stalking route.",
+  },
+  {
+    id: "threats",
+    pattern: /\b(threat|threaten(?:ed|ing)?|afraid|harm me|hurt me|find me)\b/i,
+    harm: "online_harassment",
+    note: "Threat or safety-concern language matched the online-harassment route.",
   },
 ];
 
@@ -314,6 +378,43 @@ export function analyzeSocialNarrative(
       "This suggestion is produced locally by deterministic rules. The citizen confirms the wording.",
     ],
     summary: `The account describes suspected ${harmMeta.shortLabel.toLowerCase()} on a social platform. Preserve the evidence and confirm this draft before reporting it.`,
+    entities,
+    matchedRuleId,
+  };
+}
+
+export function analyzeWcNarrative(
+  input: string,
+  selectedHarm?: WcHarm,
+): WcNarrativeAnalysis {
+  const text = input.trim();
+  const rule = wcClassificationRules.find((item) => item.pattern.test(text));
+  const suggestedHarm = rule?.harm ?? selectedHarm ?? "online_harassment";
+  const harmMeta = wcHarmMeta[suggestedHarm];
+  const entities = extractEntities(text);
+  const matchedRuleId = rule?.id ?? (selectedHarm ? "selected-harm" : "fallback");
+  const confidence = Math.min(
+    94,
+    (rule ? 86 : selectedHarm ? 76 : 62) + Math.min(8, entities.length * 2),
+  );
+  const ruleNote = rule?.note ??
+    (selectedHarm
+      ? "The selected harm supplies the draft classification; no stronger phrase conflicted with it."
+      : "No single phrase was decisive, so the draft uses online harassment and remains fully correctable.");
+
+  return {
+    category: harmMeta.category,
+    subcategory: harmMeta.subcategory,
+    suggestedHarm,
+    confidence,
+    confidenceNotes: [
+      ruleNote,
+      entities.length
+        ? `${entities.length} contact or account identifier${entities.length === 1 ? " was" : "s were"} extracted with fixed local patterns.`
+        : "No account identifier was found; the report can still continue.",
+      "This suggestion is produced locally by deterministic rules. The reporter confirms the wording.",
+    ],
+    summary: `The account describes suspected ${harmMeta.shortLabel.toLowerCase()}. The reporter can correct this draft before it is recorded.`,
     entities,
     matchedRuleId,
   };

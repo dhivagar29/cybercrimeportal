@@ -1,4 +1,4 @@
-import { ArrowRight, FileText, MessageSquareWarning, TimerReset } from "lucide-react";
+import { ArrowRight, FileText, MessageSquareWarning, ShieldCheck, TimerReset } from "lucide-react";
 import Link from "next/link";
 import { Metric } from "@/components/metric";
 
@@ -23,7 +23,11 @@ export default function HomePage() {
           <span className="flex items-center gap-3 text-left"><MessageSquareWarning aria-hidden="true" className="shrink-0" size={22} /> Being harassed or blackmailed online?</span>
           <ArrowRight aria-hidden="true" className="shrink-0" size={20} />
         </Link>
-        <p className="mt-4 max-w-2xl text-sm leading-6 text-[var(--muted)]">No login is required for Golden Hour or Stop the Spread. This prototype never contacts a bank, platform, police, or the 1930 helpline.</p>
+        <Link className="button-quiet mt-3 w-full max-w-3xl justify-between bg-white text-left text-[var(--primary)] hover:border-[var(--primary)] hover:bg-[var(--blue-soft)]" href="/report/safe">
+          <span className="flex items-center gap-3 text-left"><ShieldCheck aria-hidden="true" className="shrink-0" size={22} /> Safer report for women and children</span>
+          <ArrowRight aria-hidden="true" className="shrink-0" size={20} />
+        </Link>
+        <p className="mt-4 max-w-2xl text-sm leading-6 text-[var(--muted)]">No login is required for Golden Hour, Stop the Spread, or safer reporting. This prototype never contacts a bank, platform, police, or the 1930 helpline.</p>
       </section>
       <section aria-labelledby="evidence-heading" className="py-9">
         <p className="eyebrow">Why the flow is split</p>

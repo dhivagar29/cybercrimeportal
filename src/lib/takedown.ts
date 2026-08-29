@@ -31,6 +31,10 @@ export const takedownHarms = [
 
 export type TakedownHarm = (typeof takedownHarms)[number];
 
+export const PLATFORM_ACKNOWLEDGEMENT_SLA_HOURS = 24;
+export const STANDARD_PLATFORM_ACTION_SLA_HOURS = 15 * 24;
+export const INTIMATE_IMAGE_ACTION_SLA_HOURS = 24;
+
 export const takedownStages = [
   "reported_to_platform",
   "platform_acknowledged",
@@ -156,7 +160,7 @@ export const takedownHarmMeta: Record<
     shortLabel: "Impersonation",
     category: "Online and Social Media Crime",
     subcategory: "Fake Profile / Impersonation",
-    actionSlaHours: 15 * 24,
+    actionSlaHours: STANDARD_PLATFORM_ACTION_SLA_HOURS,
     actionSlaLabel: "15-day platform action window",
   },
   sextortion: {
@@ -164,7 +168,7 @@ export const takedownHarmMeta: Record<
     shortLabel: "Sextortion",
     category: "Online and Social Media Crime",
     subcategory: "Cyber Blackmail / Sextortion",
-    actionSlaHours: 15 * 24,
+    actionSlaHours: STANDARD_PLATFORM_ACTION_SLA_HOURS,
     actionSlaLabel: "15-day platform action window",
   },
   account_takeover: {
@@ -172,7 +176,7 @@ export const takedownHarmMeta: Record<
     shortLabel: "Hacked account",
     category: "Online and Social Media Crime",
     subcategory: "Hacked Social Media Account",
-    actionSlaHours: 15 * 24,
+    actionSlaHours: STANDARD_PLATFORM_ACTION_SLA_HOURS,
     actionSlaLabel: "15-day platform action window",
   },
   harassment: {
@@ -180,7 +184,7 @@ export const takedownHarmMeta: Record<
     shortLabel: "Stalking or threats",
     category: "Online and Social Media Crime",
     subcategory: "Cyber Stalking / Online Harassment",
-    actionSlaHours: 15 * 24,
+    actionSlaHours: STANDARD_PLATFORM_ACTION_SLA_HOURS,
     actionSlaLabel: "15-day platform action window",
   },
   ncii: {
@@ -188,7 +192,7 @@ export const takedownHarmMeta: Record<
     shortLabel: "Intimate images shared",
     category: "Online and Social Media Crime",
     subcategory: "Non-consensual Intimate Imagery (NCII)",
-    actionSlaHours: 24,
+    actionSlaHours: INTIMATE_IMAGE_ACTION_SLA_HOURS,
     actionSlaLabel: "24-hour intimate-image action window",
   },
 };
@@ -301,7 +305,7 @@ export function takedownCaseStorageKey(acknowledgement: string) {
 export const takedownCaseStateStorageKey = takedownCaseStorageKey;
 
 export function getTakedownSlaHours(stage: TakedownStage, harm: TakedownHarm) {
-  if (stage === "reported_to_platform") return 24;
+  if (stage === "reported_to_platform") return PLATFORM_ACKNOWLEDGEMENT_SLA_HOURS;
   if (stage === "platform_acknowledged") return takedownHarmMeta[harm].actionSlaHours;
   return null;
 }

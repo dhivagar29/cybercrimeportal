@@ -8,9 +8,10 @@ export const SAFETY_PREMISE =
 export const SENSITIVE_ROUTES = [
   "/takedown",
   "/case/takedown",
+  "/report/safe",
 ] as const;
 
-export const SENSITIVE_INTAKE_ROUTES = ["/takedown"] as const;
+export const SENSITIVE_INTAKE_ROUTES = ["/takedown", "/report/safe"] as const;
 export const NEUTRAL_EXIT_ROUTE = "/weather";
 export const RECLAIM_STORAGE_CLEARED_EVENT = "reclaim:storage-cleared";
 
