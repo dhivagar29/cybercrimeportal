@@ -4,6 +4,8 @@ import {
   type LiveTakedownCase,
   type TakedownCaseFixture,
 } from "@/lib/takedown";
+import { hydrateHistoryFixtures } from "@/lib/kernel/history";
+import { hydrateFixture } from "@/lib/kernel/time";
 
 export const SEEDED_TAKEDOWN_ACKNOWLEDGEMENT = "22026082813001";
 
@@ -44,35 +46,21 @@ export const takedownCaseFixtures: TakedownCaseFixture[] = [
   },
 ];
 
-const relativeIso = (now: number, offsetMinutes: number) =>
-  new Date(now + offsetMinutes * 60_000).toISOString();
-
 export function getLiveTakedownCases(now = Date.now()): LiveTakedownCase[] {
-  return takedownCaseFixtures.map(
-    ({
-      reportedOffsetMinutes,
-      stageStartedOffsetMinutes,
-      grievanceReport,
-      history,
-      ...fixture
-    }) => ({
-      ...fixture,
-      reportedAt: relativeIso(now, reportedOffsetMinutes),
-      stageStartedAt: relativeIso(now, stageStartedOffsetMinutes),
-      grievanceReport: {
-        id: grievanceReport.id,
-        title: grievanceReport.title,
-        recipient: grievanceReport.recipient,
-        subject: grievanceReport.subject,
-        generatedAt: relativeIso(now, grievanceReport.generatedOffsetMinutes),
-        status: grievanceReport.status,
-      },
-      history: history.map(({ offsetMinutes, ...event }) => ({
-        ...event,
-        occurredAt: relativeIso(now, offsetMinutes),
-      })),
-    }),
-  );
+  return takedownCaseFixtures.map((item) => {
+    const { grievanceReport, history, ...fixture } = item;
+    const liveCase: LiveTakedownCase = {
+      ...hydrateFixture(fixture, now, {
+        reportedOffsetMinutes: "reportedAt",
+        stageStartedOffsetMinutes: "stageStartedAt",
+      }),
+      grievanceReport: hydrateFixture(grievanceReport, now, {
+        generatedOffsetMinutes: "generatedAt",
+      }),
+      history: hydrateHistoryFixtures(history, now),
+    };
+    return liveCase;
+  });
 }
 
 export function getLiveTakedownCase(

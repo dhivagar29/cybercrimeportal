@@ -2,6 +2,7 @@ import { banks } from "@/lib/mock/banks";
 import { caseFixtures } from "@/lib/mock/cases";
 import { personas } from "@/lib/mock/personas";
 import { scamDatabase } from "@/lib/mock/scamdb";
+import { hydrateFixture } from "@/lib/kernel/time";
 import type {
   CitizenFixture,
   ComplaintFixture,
@@ -14,21 +15,12 @@ export { banks };
 export const complaintFixtures: ComplaintFixture[] = caseFixtures;
 export const suspects: SuspectIdentifier[] = scamDatabase;
 
-const fromNow = (offsetMinutes: number, now: number) =>
-  new Date(now + offsetMinutes * 60_000).toISOString();
-
 export function getLiveComplaints(now = Date.now()): LiveComplaint[] {
-  return complaintFixtures.map(
-    ({
-      occurredOffsetMinutes,
-      reportedOffsetMinutes,
-      stageStartedOffsetMinutes,
-      ...complaint
-    }) => ({
-      ...complaint,
-      occurredAt: fromNow(occurredOffsetMinutes, now),
-      reportedAt: fromNow(reportedOffsetMinutes, now),
-      stageStartedAt: fromNow(stageStartedOffsetMinutes, now),
+  return complaintFixtures.map((fixture) =>
+    hydrateFixture(fixture, now, {
+      occurredOffsetMinutes: "occurredAt",
+      reportedOffsetMinutes: "reportedAt",
+      stageStartedOffsetMinutes: "stageStartedAt",
     }),
   );
 }

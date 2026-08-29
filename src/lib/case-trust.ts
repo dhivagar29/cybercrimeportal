@@ -1,3 +1,5 @@
+import { buildScopedStorageKey } from "@/lib/kernel/storage";
+
 export const trustStages = [
   "filed",
   "verified",
@@ -117,7 +119,7 @@ export interface SavedTrustState {
 }
 
 export function trustStorageKey(complaintId: string) {
-  return `reclaim:trust-case:${complaintId}:v1`;
+  return buildScopedStorageKey("trust-case", complaintId);
 }
 
 export function nextTrustStage(stage: TrustStage, amount: number) {

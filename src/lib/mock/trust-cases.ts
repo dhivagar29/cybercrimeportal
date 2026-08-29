@@ -1,4 +1,5 @@
 import type { LiveTrustCase, TrustCaseFixture } from "@/lib/case-trust";
+import { relativeIso } from "@/lib/kernel/time";
 
 export const trustCaseFixtures: TrustCaseFixture[] = [
   {
@@ -80,8 +81,6 @@ export const trustCaseFixtures: TrustCaseFixture[] = [
     ], breaches: [],
   },
 ];
-
-const relativeIso = (now: number, offsetMinutes: number) => new Date(now + offsetMinutes * 60_000).toISOString();
 
 export function getLiveTrustCase(complaintId: string, now = Date.now()): LiveTrustCase | undefined {
   const fixture = trustCaseFixtures.find((item) => item.complaintId === complaintId);

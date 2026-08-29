@@ -1,3 +1,14 @@
+import type {
+  HistoryEvent,
+  HistoryFixture,
+} from "@/lib/kernel/history";
+import { resolveSla } from "@/lib/kernel/sla";
+import { defineTrack, type StageMeta } from "@/lib/kernel/stages";
+import {
+  buildScopedStorageKey,
+  buildStorageKey,
+} from "@/lib/kernel/storage";
+
 export const takedownPlatforms = [
   "whatsapp",
   "instagram",
@@ -182,10 +193,7 @@ export const takedownHarmMeta: Record<
   },
 };
 
-export const takedownStageMeta: Record<
-  TakedownStage,
-  { label: string; meaning: string; actor: string }
-> = {
+export const takedownStageMeta: Record<TakedownStage, StageMeta> = {
   reported_to_platform: {
     label: "Reported to platform",
     meaning: "Your evidence and grievance report have been recorded for the platform.",
@@ -208,16 +216,18 @@ export const takedownStageMeta: Record<
   },
 };
 
-export interface TakedownHistoryFixture {
+const takedownTrack = defineTrack({
+  stages: takedownStages,
+  meta: takedownStageMeta,
+});
+
+export interface TakedownHistoryFixture
+  extends HistoryFixture<TakedownStage> {
   stage: TakedownStage;
-  offsetMinutes: number;
-  detail: string;
 }
 
-export interface TakedownHistoryEvent {
+export interface TakedownHistoryEvent extends HistoryEvent<TakedownStage> {
   stage: TakedownStage;
-  occurredAt: string;
-  detail: string;
 }
 
 export interface GrievanceReportFixture {
@@ -280,12 +290,12 @@ export interface SavedTakedownCase extends LiveTakedownCase {
   version: 1;
 }
 
-export const TAKEDOWN_DRAFT_KEY = "reclaim:takedown:draft:v1";
-export const TAKEDOWN_CASES_KEY = "reclaim:takedown-cases:v1";
+export const TAKEDOWN_DRAFT_KEY = buildStorageKey("takedown:draft");
+export const TAKEDOWN_CASES_KEY = buildStorageKey("takedown-cases");
 export const TAKEDOWN_DRAFT_STORAGE_KEY = TAKEDOWN_DRAFT_KEY;
 
 export function takedownCaseStorageKey(acknowledgement: string) {
-  return `reclaim:takedown-case:${acknowledgement}:v1`;
+  return buildScopedStorageKey("takedown-case", acknowledgement);
 }
 
 export const takedownCaseStateStorageKey = takedownCaseStorageKey;
@@ -309,9 +319,11 @@ export function getTakedownSlaDeadline(
 ) {
   const hours = getTakedownSlaHours(stage, harm);
   if (hours === null) return null;
-  const startedAt = new Date(stageStartedAt).getTime();
-  if (!Number.isFinite(startedAt)) return null;
-  return new Date(startedAt + hours * 60 * 60 * 1000).toISOString();
+  try {
+    return resolveSla({ stageStartedAt, hours }).deadline;
+  } catch {
+    return null;
+  }
 }
 
 export function isTakedownSlaBreached(
@@ -320,12 +332,23 @@ export function isTakedownSlaBreached(
   harm: TakedownHarm,
   now = Date.now(),
 ) {
-  const deadline = getTakedownSlaDeadline(stageStartedAt, stage, harm);
-  return deadline ? now > new Date(deadline).getTime() : false;
+  const hours = getTakedownSlaHours(stage, harm);
+  if (hours === null) return false;
+  try {
+    return resolveSla({ stageStartedAt, hours, now }).breached;
+  } catch {
+    return false;
+  }
 }
 
-export function nextTakedownStage(stage: TakedownStage) {
-  if (stage === "reported_to_platform") return "platform_acknowledged" as const;
-  if (stage === "platform_acknowledged") return "content_action_taken" as const;
-  return null;
+export function nextTakedownStage(
+  stage: TakedownStage,
+): "platform_acknowledged" | "content_action_taken" | null {
+  if (stage === "content_action_taken" || stage === "escalated_to_ncrp") {
+    return null;
+  }
+  const next = takedownTrack.nextStage(stage);
+  return next === "platform_acknowledged" || next === "content_action_taken"
+    ? next
+    : null;
 }
