@@ -3,16 +3,47 @@
 import { ArrowRight, Check, Copy, Search, ShieldAlert, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
+import { useEffect } from "react";
 import { suspects } from "@/lib/mock/fixtures";
 import type { SuspectIdentifier } from "@/lib/mock/types";
 
 function normalize(value: string) { return value.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/[\s/()-]/g, ""); }
+
+const SCAM_CHECK_STATE_KEY = "reclaim:scam-check:v1";
+
+type SavedScamCheck = { version: 1; query: string; result: SuspectIdentifier | "clear" | null };
+
+function safeSavedCheck(raw: string | null): SavedScamCheck | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as SavedScamCheck;
+    return parsed.version === 1 ? parsed : null;
+  } catch {
+    return null;
+  }
+}
 
 export function ScamCheck({ initialQuery = "" }: { initialQuery?: string }) {
   const [query, setQuery] = useState(initialQuery);
   const [result, setResult] = useState<SuspectIdentifier | "clear" | null>(null);
   const [copied, setCopied] = useState(false);
   const [checking, setChecking] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      const saved = safeSavedCheck(window.localStorage.getItem(SCAM_CHECK_STATE_KEY));
+      if (!initialQuery && saved) { setQuery(saved.query); setResult(saved.result); }
+      setHydrated(true);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [initialQuery]);
+
+  useEffect(() => {
+    if (!hydrated || checking) return;
+    const saved: SavedScamCheck = { version: 1, query, result };
+    window.localStorage.setItem(SCAM_CHECK_STATE_KEY, JSON.stringify(saved));
+  }, [checking, hydrated, query, result]);
 
   async function check(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -34,8 +65,8 @@ export function ScamCheck({ initialQuery = "" }: { initialQuery?: string }) {
     <div className="grid gap-5 md:grid-cols-[1fr_0.8fr]">
       <form className="panel" onSubmit={check}>
         <label className="field-label text-xl" htmlFor="suspect-query">Number, UPI ID, URL, or APK name</label>
-        <input id="suspect-query" className="field-control" required value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Try verify2@paytm" />
-        <div className="mt-3 flex flex-wrap gap-2"><button className="button-quiet" type="button" onClick={() => setQuery("verify2@paytm")}>Use reported UPI demo</button><button className="button-quiet" type="button" onClick={() => setQuery("trustedfriend@upi")}>Use no-match demo</button></div>
+        <input id="suspect-query" className="field-control" required value={query} onChange={(event) => { setQuery(event.target.value); setResult(null); }} placeholder="Try verify2@paytm" />
+        <div className="mt-3 flex flex-wrap gap-2"><button className="button-quiet" type="button" onClick={() => { setQuery("verify2@paytm"); setResult(null); }}>Use reported UPI demo</button><button className="button-quiet" type="button" onClick={() => { setQuery("trustedfriend@upi"); setResult(null); }}>Use no-match demo</button></div>
         <button className="button-primary mt-4 w-full" type="submit" disabled={checking}><Search aria-hidden="true" size={20} /> {checking ? "Checking the mock reports…" : "Check 25 mock identifiers"}</button>
       </form>
       <aside aria-live="polite">

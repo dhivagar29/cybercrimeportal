@@ -4,6 +4,7 @@ import { getLiveComplaints } from "@/lib/mock/fixtures";
 import { SubmittedCases } from "@/components/submitted-cases";
 import { trustStageMeta } from "@/lib/case-trust";
 import { getLiveTrustCase } from "@/lib/mock/trust-cases";
+import { TakedownCaseList } from "@/components/takedown-case-list";
 
 
 export const metadata = { title: "Live case file" };
@@ -27,6 +28,7 @@ export default function CasePage() {
           </article>
         ))}
       </div>
+      <TakedownCaseList />
     </div>
   );
 }

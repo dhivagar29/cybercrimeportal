@@ -1,4 +1,4 @@
-import { ArrowRight, FileText, TimerReset } from "lucide-react";
+import { ArrowRight, FileText, MessageSquareWarning, TimerReset } from "lucide-react";
 import Link from "next/link";
 import { Metric } from "@/components/metric";
 
@@ -14,12 +14,16 @@ export default function HomePage() {
       <section className="border-b-2 border-[var(--line)] pb-10 pt-3">
         <p className="eyebrow">Citizen-side cybercrime recovery</p>
         <h1 className="page-title max-w-[19ch]">Report in your own words. Freeze the money first. See exactly where your case is.</h1>
-        <p className="lede mt-5">A calm, mock-only path for the urgent minutes after financial cybercrime—and the slower work of building and tracking a case.</p>
+        <p className="lede mt-5">A calm, mock-only path to stop financial loss, preserve online evidence, and see what happens after a report.</p>
         <div className="mt-7 grid max-w-3xl gap-3 sm:grid-cols-2">
           <Link className="button-alert" href="/golden-hour"><TimerReset aria-hidden="true" size={22} /> I&apos;m losing money RIGHT NOW</Link>
           <Link className="button-secondary" href="/report"><FileText aria-hidden="true" size={21} /> Report a cybercrime / track my case <ArrowRight aria-hidden="true" size={20} /></Link>
         </div>
-        <p className="mt-4 max-w-2xl text-sm leading-6 text-[var(--muted)]">No login is required to start Golden Hour. This prototype never contacts a bank, the police, or the 1930 helpline.</p>
+        <Link className="button-quiet mt-3 w-full max-w-3xl justify-between bg-white text-left text-[var(--primary)] hover:border-[var(--primary)] hover:bg-[var(--blue-soft)]" href="/takedown">
+          <span className="flex items-center gap-3 text-left"><MessageSquareWarning aria-hidden="true" className="shrink-0" size={22} /> Being harassed or blackmailed online?</span>
+          <ArrowRight aria-hidden="true" className="shrink-0" size={20} />
+        </Link>
+        <p className="mt-4 max-w-2xl text-sm leading-6 text-[var(--muted)]">No login is required for Golden Hour or Stop the Spread. This prototype never contacts a bank, platform, police, or the 1930 helpline.</p>
       </section>
       <section aria-labelledby="evidence-heading" className="py-9">
         <p className="eyebrow">Why the flow is split</p>

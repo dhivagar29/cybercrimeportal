@@ -21,7 +21,7 @@ import { ParallelActionChecklist } from "@/components/parallel-action-checklist"
 import { analyzeNarrative, cannedScenarios, getMockOcrEntities, scenarioIds, type EntityKind, type IntakeAnalysis, type ScenarioId } from "@/lib/engine";
 import { readMockSession } from "@/lib/auth";
 import { GOLDEN_HOUR_REPORT_KEY, type GoldenHourTicket } from "@/lib/golden-hour";
-import { findPersona } from "@/lib/mock/personas";
+import { findPersona, personas } from "@/lib/mock/personas";
 import { banks, complaintFixtures } from "@/lib/mock/fixtures";
 import type { DemoPersona } from "@/lib/mock/types";
 import {
@@ -132,7 +132,8 @@ export function ReportBuilder() {
 
   function continueToForm() {
     if (!draft.analysis) return;
-    patchDraft({ form: defaultForm(draft.analysis, draft.narrative, golden, persona), touchedFields: [], step: "form" });
+    const inferredPersona = draft.analysis.scenarioId ? personas.find((item) => item.firstName.toLowerCase() === draft.analysis?.scenarioId) : undefined;
+    patchDraft({ form: defaultForm(draft.analysis, draft.narrative, golden, persona ?? inferredPersona), touchedFields: [], step: "form" });
   }
 
   function handleEvidence(files: FileList | null) {
@@ -153,7 +154,8 @@ export function ReportBuilder() {
     if (!draft.form || !draft.analysis) return;
     setBusy("filing");
     await new Promise((resolve) => window.setTimeout(resolve, 700));
-    const acknowledgement = makeAcknowledgement();
+    const scenarioAcknowledgements: Partial<Record<ScenarioId, string>> = { meena: "22026082710482", arjun: "22026082709831", priya: "22026081508724" };
+    const acknowledgement = draft.analysis.scenarioId ? scenarioAcknowledgements[draft.analysis.scenarioId] ?? makeAcknowledgement() : makeAcknowledgement();
     const submitted: SubmittedCitizenCase = {
       acknowledgement,
       filedAt: new Date().toISOString(),
@@ -191,7 +193,8 @@ export function ReportBuilder() {
     const personaComplaint = complaintFixtures.find((item) => item.citizenId === persona?.id);
     const actionBank = banks.find((item) => item.id === golden?.bankId) ?? banks.find((item) => item.id === personaComplaint?.sourceBankId) ?? banks[0];
     const incidentAt = golden?.occurredAt ?? (draft.form?.incidentDateTime ? new Date(draft.form.incidentDateTime).toISOString() : draft.analysis?.timeline[0]?.occurredAt ?? draft.updatedAt);
-    return <Acknowledgement acknowledgement={draft.acknowledgement} incidentAt={incidentAt} bankName={actionBank.name} fraudLine={actionBank.fraudLine} scopeId={golden ? `journey-${golden.reference}` : `report-${draft.acknowledgement}`} onNew={resetDraft} />;
+    const caseHref = complaintFixtures.some((item) => item.id === draft.acknowledgement) ? `/case/${draft.acknowledgement}` : "/case";
+    return <Acknowledgement acknowledgement={draft.acknowledgement} caseHref={caseHref} incidentAt={incidentAt} bankName={actionBank.name} fraudLine={actionBank.fraudLine} scopeId={golden ? `journey-${golden.reference}` : `report-${draft.acknowledgement}`} onNew={resetDraft} />;
   }
 
   return (
@@ -289,6 +292,6 @@ function FormField({ field, label, type = "text", required = false, optional = f
 
 function AutoFilled() { return <span className="mt-1 inline-flex items-center gap-1 text-xs font-black text-[var(--primary)]"><Check aria-hidden="true" size={14} /> We filled this for you — please check</span>; }
 
-function Acknowledgement({ acknowledgement, incidentAt, bankName, fraudLine, scopeId, onNew }: { acknowledgement: string; incidentAt: string; bankName: string; fraudLine: string; scopeId: string; onNew: () => void }) {
-  return <div className="mx-auto grid max-w-3xl gap-5"><section className="border-2 border-[#08745c] bg-[#eaf6f2] p-5 sm:p-8" role="status" aria-labelledby="ack-heading"><CheckCircle2 aria-hidden="true" className="text-[#08745c]" size={48} /><p className="eyebrow mt-5 text-[#075a49]">Mock complaint filed</p><h2 id="ack-heading" className="m-0 mt-2 text-3xl">Your account has been recorded.</h2><p className="mt-4 leading-7">Acknowledgement number</p><strong className="block break-all bg-white p-4 font-mono text-2xl">{acknowledgement}</strong><p className="mt-4 text-sm leading-6 text-[var(--muted)]">This is a complaint acknowledgement, not an FIR. It is stored only on this device and now appears in the mock case list.</p></section><ParallelActionChecklist scopeId={scopeId} incidentAt={incidentAt} bankName={bankName} fraudLine={fraudLine} /><div className="grid gap-3 sm:grid-cols-3"><Link className="button-primary" href="/case">Open the case file <ArrowRight aria-hidden="true" size={20} /></Link><Link className="button-secondary" href="/scam-check">Check suspect ID</Link><button className="button-secondary" type="button" onClick={onNew}><RotateCcw aria-hidden="true" size={19} /> File another report</button></div></div>;
+function Acknowledgement({ acknowledgement, caseHref, incidentAt, bankName, fraudLine, scopeId, onNew }: { acknowledgement: string; caseHref: string; incidentAt: string; bankName: string; fraudLine: string; scopeId: string; onNew: () => void }) {
+  return <div className="mx-auto grid max-w-3xl gap-5"><section className="border-2 border-[#08745c] bg-[#eaf6f2] p-5 sm:p-8" role="status" aria-labelledby="ack-heading"><CheckCircle2 aria-hidden="true" className="text-[#08745c]" size={48} /><p className="eyebrow mt-5 text-[#075a49]">Mock complaint filed</p><h2 id="ack-heading" className="m-0 mt-2 text-3xl">Your account has been recorded.</h2><p className="mt-4 leading-7">Acknowledgement number</p><strong className="block break-all bg-white p-4 font-mono text-2xl">{acknowledgement}</strong><p className="mt-4 text-sm leading-6 text-[var(--muted)]">This is a complaint acknowledgement, not an FIR. It is stored only on this device and now appears in the mock case list.</p></section><ParallelActionChecklist scopeId={scopeId} incidentAt={incidentAt} bankName={bankName} fraudLine={fraudLine} /><div className="grid gap-3 sm:grid-cols-3"><Link className="button-primary" href={caseHref}>Open the case file <ArrowRight aria-hidden="true" size={20} /></Link><Link className="button-secondary" href="/scam-check">Check suspect ID</Link><button className="button-secondary" type="button" onClick={onNew}><RotateCcw aria-hidden="true" size={19} /> File another report</button></div></div>;
 }

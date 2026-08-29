@@ -14,6 +14,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   formatGoldenHourDuration,
+  GOLDEN_HOUR_PROGRESS_KEY,
   GOLDEN_HOUR_REPORT_KEY,
   GOLDEN_HOUR_TICKET_KEY,
   paymentMethods,
@@ -27,6 +28,18 @@ import { ParallelActionChecklist } from "@/components/parallel-action-checklist"
 
 type FlowStep = 0 | 1 | 2 | 3;
 
+type GoldenHourProgress = {
+  version: 1;
+  step: FlowStep;
+  amount: string;
+  whenChoice: WhenChoice | null;
+  occurredAt: string;
+  paymentMethod: PaymentMethod | null;
+  bankId: string;
+  bankSearch: string;
+  startedAt: number;
+};
+
 const stepLabels = ["Amount", "When", "Payment", "Bank"] as const;
 
 function makeReference(now: number) {
@@ -38,6 +51,16 @@ function safeTicket(raw: string | null) {
   try {
     const parsed = JSON.parse(raw) as GoldenHourTicket;
     return parsed.reference?.startsWith("2") ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function safeProgress(raw: string | null): GoldenHourProgress | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as GoldenHourProgress;
+    return parsed.version === 1 && [0, 1, 2, 3].includes(parsed.step) ? parsed : null;
   } catch {
     return null;
   }
@@ -57,14 +80,25 @@ export function GoldenHourFlow() {
   const [ticket, setTicket] = useState<GoldenHourTicket | null>(null);
   const [showInterrupt, setShowInterrupt] = useState(false);
   const [holding, setHolding] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
       const openedAt = Date.now();
-      setStartedAt(openedAt);
+      const storedTicket = safeTicket(window.localStorage.getItem(GOLDEN_HOUR_TICKET_KEY));
+      const progress = storedTicket ? null : safeProgress(window.localStorage.getItem(GOLDEN_HOUR_PROGRESS_KEY));
+      setStep(progress?.step ?? 0);
+      setAmount(progress?.amount ?? "");
+      setWhenChoice(progress?.whenChoice ?? null);
+      setOccurredAt(progress?.occurredAt ?? "");
+      setPaymentMethod(progress?.paymentMethod ?? null);
+      setBankId(progress?.bankId ?? "");
+      setBankSearch(progress?.bankSearch ?? "");
+      setStartedAt(progress?.startedAt ?? openedAt);
       setNow(openedAt);
-      setTicket(safeTicket(window.localStorage.getItem(GOLDEN_HOUR_TICKET_KEY)));
-      amountInputRef.current?.focus();
+      setTicket(storedTicket);
+      setHydrated(true);
+      if (!progress && !storedTicket) amountInputRef.current?.focus();
     });
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => {
@@ -72,6 +106,12 @@ export function GoldenHourFlow() {
       window.clearInterval(timer);
     };
   }, []);
+
+  useEffect(() => {
+    if (!hydrated || ticket || !startedAt) return;
+    const progress: GoldenHourProgress = { version: 1, step, amount, whenChoice, occurredAt, paymentMethod, bankId, bankSearch, startedAt };
+    window.localStorage.setItem(GOLDEN_HOUR_PROGRESS_KEY, JSON.stringify(progress));
+  }, [amount, bankId, bankSearch, hydrated, occurredAt, paymentMethod, startedAt, step, ticket, whenChoice]);
 
   const elapsedSeconds = ticket?.responseSeconds ?? (startedAt && now ? Math.floor((now - startedAt) / 1000) : 0);
   const selectedBank = banks.find((bank) => bank.id === (ticket?.bankId ?? bankId));
@@ -111,6 +151,7 @@ export function GoldenHourFlow() {
     };
     window.localStorage.setItem(GOLDEN_HOUR_TICKET_KEY, JSON.stringify(nextTicket));
     window.localStorage.setItem(GOLDEN_HOUR_REPORT_KEY, JSON.stringify(nextTicket));
+    window.localStorage.removeItem(GOLDEN_HOUR_PROGRESS_KEY);
     setTicket(nextTicket);
     setHolding(false);
   }

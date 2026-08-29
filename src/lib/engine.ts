@@ -1,3 +1,5 @@
+import { takedownHarmMeta, type TakedownHarm } from "@/lib/takedown";
+
 export type EntityKind = "amount" | "utr" | "upi" | "phone" | "url" | "handle";
 
 export interface ExtractedEntity {
@@ -35,6 +37,24 @@ export interface ClassificationRule {
   note: string;
 }
 
+export interface SocialClassificationRule {
+  id: "ncii" | "sextortion" | "account-takeover" | "impersonation";
+  pattern: RegExp;
+  harm: TakedownHarm;
+  note: string;
+}
+
+export interface SocialNarrativeAnalysis {
+  category: string;
+  subcategory: string;
+  suggestedHarm: TakedownHarm;
+  confidence: number;
+  confidenceNotes: string[];
+  summary: string;
+  entities: ExtractedEntity[];
+  matchedRuleId: SocialClassificationRule["id"] | "selected-harm" | "fallback";
+}
+
 export const classificationRules: ClassificationRule[] = [
   { id: "investment", pattern: /\b(trading|investment|profit|returns?|crypto|withdrawal|stock tips?)\b/i, category: "Online Financial Fraud", subcategory: "Investment Scam", note: "Investment, trading, profit, or withdrawal language matched." },
   { id: "digital-arrest", pattern: /\b(digital arrest|arrest|cbi|customs|narcotics|safe account|parcel)\b/i, category: "Online Financial Fraud", subcategory: "Digital Arrest", note: "Authority impersonation or digital-arrest coercion matched." },
@@ -48,6 +68,37 @@ export const classificationRules: ClassificationRule[] = [
   { id: "impersonation", pattern: /\b(impersonat(?:e|ed|ion)|fake profile|hacked account|instagram|facebook|whatsapp account)\b/i, category: "Online and Social Media Crime", subcategory: "Impersonation", note: "A fake or compromised social-media identity matched." },
   { id: "malware", pattern: /\b(apk|anydesk|remote access|screen share|malware|ransomware|unknown app)\b/i, category: "Cyber Attack", subcategory: "Malware / Remote Access", note: "APK, remote-access, or malware language matched." },
   { id: "harassment", pattern: /\b(cyber bullying|bullying|abusive messages|threats|trolling)\b/i, category: "Online and Social Media Crime", subcategory: "Cyber Bullying / Harassment", note: "Online abuse, threats, or harassment language matched." },
+];
+
+export const socialClassificationRules: SocialClassificationRule[] = [
+  {
+    id: "ncii",
+    pattern:
+      /\b(morph(?:ed|ing)?|nude|intimate images?|shared (?:my )?(?:photos?|videos?)|posted (?:my )?(?:photos?|videos?))\b/i,
+    harm: "ncii",
+    note: "Language about morphed, nude, intimate, or already-shared media matched NCII.",
+  },
+  {
+    id: "sextortion",
+    pattern:
+      /\b(photos?|videos?|video call|pay or|blackmail|sextortion|leak|send (?:it|them) to)\b/i,
+    harm: "sextortion",
+    note: "Photo or video blackmail language matched sextortion.",
+  },
+  {
+    id: "account-takeover",
+    pattern:
+      /\b(logged out|password (?:was )?changed|account (?:was )?hacked|can(?:not|'t) log in|unknown login)\b/i,
+    harm: "account_takeover",
+    note: "Loss of access or an unexpected password change matched account takeover.",
+  },
+  {
+    id: "impersonation",
+    pattern:
+      /\b(fake profile|fake account|pretending(?:\s+(?:to be|as))?|impersonat(?:e|ed|ing|ion)|using my (?:name|photo))\b/i,
+    harm: "impersonation",
+    note: "Fake-profile or identity-copying language matched impersonation.",
+  },
 ];
 
 export const scenarioIds = ["meena", "arjun", "priya"] as const;
@@ -227,6 +278,44 @@ export function analyzeNarrative(input: string, requestedScenario?: ScenarioId, 
       { id: "event-report", occurredAt: relativeIso(now, 0), title: "Report being prepared", detail: "Facts extracted locally and waiting for citizen confirmation." },
     ],
     matchedBy: "keyword-rules",
+  };
+}
+
+export function analyzeSocialNarrative(
+  input: string,
+  selectedHarm?: TakedownHarm,
+): SocialNarrativeAnalysis {
+  const text = input.trim();
+  const rule = socialClassificationRules.find((item) => item.pattern.test(text));
+  const suggestedHarm = rule?.harm ?? selectedHarm ?? "harassment";
+  const harmMeta = takedownHarmMeta[suggestedHarm];
+  const entities = extractEntities(text);
+  const matchedRuleId = rule?.id ?? (selectedHarm ? "selected-harm" : "fallback");
+  const confidence = Math.min(
+    94,
+    (rule ? 86 : selectedHarm ? 76 : 62) + Math.min(8, entities.length * 2),
+  );
+
+  const ruleNote = rule?.note ??
+    (selectedHarm
+      ? "The selected incident type supplies the draft classification; no stronger phrase conflicted with it."
+      : "No single phrase was decisive, so the draft uses online harassment and remains fully correctable.");
+
+  return {
+    category: harmMeta.category,
+    subcategory: harmMeta.subcategory,
+    suggestedHarm,
+    confidence,
+    confidenceNotes: [
+      ruleNote,
+      entities.length
+        ? `${entities.length} contact or account identifier${entities.length === 1 ? " was" : "s were"} extracted with fixed local patterns.`
+        : "No account identifier was found; the report can still continue.",
+      "This suggestion is produced locally by deterministic rules. The citizen confirms the wording.",
+    ],
+    summary: `The account describes suspected ${harmMeta.shortLabel.toLowerCase()} on a social platform. Preserve the evidence and confirm this draft before reporting it.`,
+    entities,
+    matchedRuleId,
   };
 }
 

@@ -1,5 +1,6 @@
 export const GOLDEN_HOUR_TICKET_KEY = "reclaim:golden-hour-ticket:v1";
 export const GOLDEN_HOUR_REPORT_KEY = "reclaim:report-draft:v1";
+export const GOLDEN_HOUR_PROGRESS_KEY = "reclaim:golden-hour-progress:v1";
 
 export const whenChoices = [
   { id: "just-now", label: "Just now", offsetMinutes: 0 },
