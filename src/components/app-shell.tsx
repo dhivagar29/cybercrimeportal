@@ -6,6 +6,18 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AUTH_EVENT, readMockSession } from "@/lib/auth";
 import { findPersona } from "@/lib/mock/personas";
+import {
+  SafetyFloatingControls,
+  SafetyNoticeStrip,
+  SafetyPanel,
+} from "@/components/safety/safety-controls";
+import { SafetyCheckInterstitial } from "@/components/safety/safety-check";
+import { SafetyProvider } from "@/components/safety/safety-provider";
+import {
+  NEUTRAL_EXIT_ROUTE,
+  RECLAIM_STORAGE_CLEARED_EVENT,
+  useSafety,
+} from "@/lib/safety";
 
 const navItems = [
   { href: "/", label: "Home", icon: Home },
@@ -16,21 +28,34 @@ const navItems = [
 ] as const;
 
 export function AppShell({ children }: { children: React.ReactNode }) {
+  return (
+    <SafetyProvider>
+      <AppShellFrame>{children}</AppShellFrame>
+    </SafetyProvider>
+  );
+}
+
+function AppShellFrame({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [personaId, setPersonaId] = useState<string | null>(null);
+  const { requiresSafetyCheck } = useSafety();
 
   useEffect(() => {
     function syncSession() { setPersonaId(readMockSession()?.personaId ?? null); }
     syncSession();
     window.addEventListener("storage", syncSession);
     window.addEventListener(AUTH_EVENT, syncSession);
+    window.addEventListener(RECLAIM_STORAGE_CLEARED_EVENT, syncSession);
     return () => {
       window.removeEventListener("storage", syncSession);
       window.removeEventListener(AUTH_EVENT, syncSession);
+      window.removeEventListener(RECLAIM_STORAGE_CLEARED_EVENT, syncSession);
     };
   }, []);
 
   const persona = findPersona(personaId);
+
+  if (pathname === NEUTRAL_EXIT_ROUTE) return <>{children}</>;
 
   return (
     <>
@@ -51,7 +76,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </header>
-      <main id="main-content">{children}</main>
+      <SafetyNoticeStrip />
+      <main id="main-content">{requiresSafetyCheck ? <SafetyCheckInterstitial /> : children}</main>
       <nav aria-label="Primary" className="app-nav fixed inset-x-0 bottom-0 z-40 border-t-2 border-[var(--primary)] bg-white md:static">
         <div className="mx-auto grid w-full max-w-[760px] grid-cols-5">
           {navItems.map(({ href, label, icon: Icon }) => {
@@ -60,6 +86,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           })}
         </div>
       </nav>
+      <SafetyFloatingControls />
+      <SafetyPanel />
     </>
   );
 }

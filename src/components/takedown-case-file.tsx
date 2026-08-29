@@ -12,6 +12,7 @@ import {
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { getLiveTakedownCase } from "@/lib/mock/takedown-cases";
+import { useSafety } from "@/lib/safety";
 import {
   evidenceChecklistItems,
   getTakedownSlaDeadline,
@@ -63,23 +64,8 @@ function safeCaseList(raw: string | null): SavedTakedownCase[] {
   }
 }
 
-function readStorage(key: string) {
-  try {
-    return window.localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
-
-function writeStorage(key: string, value: string) {
-  try {
-    window.localStorage.setItem(key, value);
-  } catch {
-    // Keep the tracker interactive even if private storage is unavailable.
-  }
-}
-
 export function TakedownCaseFile({ acknowledgement }: { acknowledgement: string }) {
+  const { clearRevision, privateMode, readSensitiveItem, writeSensitiveItem } = useSafety();
   const [caseData, setCaseData] = useState<SavedTakedownCase | null>(null);
   const [resolved, setResolved] = useState(false);
   const [now, setNow] = useState(0);
@@ -87,7 +73,7 @@ export function TakedownCaseFile({ acknowledgement }: { acknowledgement: string 
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
-      const saved = safeCase(readStorage(takedownCaseStorageKey(acknowledgement)));
+      const saved = safeCase(readSensitiveItem(takedownCaseStorageKey(acknowledgement)));
       const seeded = saved ? null : getLiveTakedownCase(acknowledgement, Date.now());
       setCaseData(saved ?? (seeded ? { ...seeded, version: 1 } : null));
       setNow(Date.now());
@@ -95,12 +81,12 @@ export function TakedownCaseFile({ acknowledgement }: { acknowledgement: string 
     });
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => { window.cancelAnimationFrame(frame); window.clearInterval(timer); };
-  }, [acknowledgement]);
+  }, [acknowledgement, clearRevision, readSensitiveItem]);
 
   function persist(next: SavedTakedownCase) {
-    writeStorage(takedownCaseStorageKey(next.acknowledgement), JSON.stringify(next));
-    const cases = safeCaseList(readStorage(TAKEDOWN_CASES_KEY));
-    writeStorage(TAKEDOWN_CASES_KEY, JSON.stringify([next, ...cases.filter((item) => item.acknowledgement !== next.acknowledgement)]));
+    writeSensitiveItem(takedownCaseStorageKey(next.acknowledgement), JSON.stringify(next));
+    const cases = safeCaseList(readSensitiveItem(TAKEDOWN_CASES_KEY));
+    writeSensitiveItem(TAKEDOWN_CASES_KEY, JSON.stringify([next, ...cases.filter((item) => item.acknowledgement !== next.acknowledgement)]));
     setCaseData(next);
   }
 
@@ -147,12 +133,12 @@ export function TakedownCaseFile({ acknowledgement }: { acknowledgement: string 
     if (!caseData) return [];
     return [
       ...caseData.history.map((event, index) => ({ id: `stage-${index}`, occurredAt: event.occurredAt, title: takedownStageMeta[event.stage].label, detail: event.detail, kind: event.stage === "escalated_to_ncrp" ? "warning" as const : "state" as const })),
-      { id: caseData.grievanceReport.id, occurredAt: caseData.grievanceReport.generatedAt, title: "Platform grievance report generated", detail: `Filled for ${caseData.grievanceReport.recipient}. Stored on this device; not sent.`, kind: "document" as const },
+      { id: caseData.grievanceReport.id, occurredAt: caseData.grievanceReport.generatedAt, title: "Platform grievance report generated", detail: `Filled for ${caseData.grievanceReport.recipient}. ${privateMode ? "Held only in this tab" : "Stored on this device"}; not sent.`, kind: "document" as const },
     ].sort((a, b) => new Date(a.occurredAt).getTime() - new Date(b.occurredAt).getTime());
-  }, [caseData]);
+  }, [caseData, privateMode]);
 
   if (!resolved) return <section className="panel" role="status"><strong>Loading the saved takedown case…</strong></section>;
-  if (!caseData) return <section className="panel"><p className="eyebrow">Case not found on this device</p><h1 className="mt-2 text-3xl">This acknowledgement is not saved here.</h1><p className="leading-7 text-[var(--muted)]">Anonymous reports live only in the browser that created them.</p><div className="mt-5 flex flex-wrap gap-3"><Link className="button-primary" href="/takedown">Start a report</Link><Link className="button-secondary" href="/case">See demo cases</Link></div></section>;
+  if (!caseData) return <section className="panel"><p className="eyebrow">Case not found {privateMode ? "in this tab" : "on this device"}</p><h1 className="mt-2 text-3xl">This acknowledgement is not available here.</h1><p className="leading-7 text-[var(--muted)]">{privateMode ? "Private reports disappear when the tab closes." : "Anonymous reports live only in the browser that created them."}</p><div className="mt-5 flex flex-wrap gap-3"><Link className="button-primary" href="/takedown">Start a report</Link><Link className="button-secondary" href="/case">See demo cases</Link></div></section>;
 
   const deadlineIso = getTakedownSlaDeadline(caseData.stageStartedAt, caseData.stage, caseData.harm);
   const deadline = deadlineIso ? new Date(deadlineIso).getTime() : null;

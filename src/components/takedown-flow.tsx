@@ -15,6 +15,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { analyzeSocialNarrative, type SocialNarrativeAnalysis } from "@/lib/engine";
 import { makeAcknowledgement } from "@/lib/report";
+import { useSafety } from "@/lib/safety";
 import {
   emptyEvidenceChecklist,
   evidenceChecklistItems,
@@ -72,22 +73,6 @@ function safeCaseList(raw: string | null) {
   }
 }
 
-function readStorage(key: string) {
-  try {
-    return window.localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
-
-function writeStorage(key: string, value: string) {
-  try {
-    window.localStorage.setItem(key, value);
-  } catch {
-    // The flow remains usable when storage is unavailable; only resume is lost.
-  }
-}
-
 function subjectFor(harm: TakedownHarm) {
   if (harm === "sextortion") return "Urgent sextortion report and request to preserve account records";
   if (harm === "ncii") return "Urgent removal of intimate images shared without consent";
@@ -98,6 +83,13 @@ function subjectFor(harm: TakedownHarm) {
 
 export function TakedownFlow() {
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const {
+    clearRevision,
+    privateMode,
+    readSensitiveItem,
+    removeSensitiveItem,
+    writeSensitiveItem,
+  } = useSafety();
   const [draft, setDraft] = useState<SavedTakedownDraft>(blankDraft);
   const [analysis, setAnalysis] = useState<SocialNarrativeAnalysis | null>(null);
   const [hydrated, setHydrated] = useState(false);
@@ -105,22 +97,25 @@ export function TakedownFlow() {
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
-      const stored = safeDraft(readStorage(TAKEDOWN_DRAFT_KEY));
+      const stored = safeDraft(readSensitiveItem(TAKEDOWN_DRAFT_KEY));
       if (stored) {
         setDraft(stored);
         if ((stored.step === "review" || stored.step === "submitted") && stored.harm && stored.narrative.trim()) {
           setAnalysis(analyzeSocialNarrative(stored.narrative, stored.harm));
         }
+      } else if (clearRevision > 0) {
+        setDraft({ ...blankDraft, evidence: { ...emptyEvidenceChecklist } });
+        setAnalysis(null);
       }
       setHydrated(true);
     });
     return () => window.cancelAnimationFrame(frame);
-  }, []);
+  }, [clearRevision, readSensitiveItem]);
 
   useEffect(() => {
     if (!hydrated) return;
-    writeStorage(TAKEDOWN_DRAFT_KEY, JSON.stringify(draft));
-  }, [draft, hydrated]);
+    writeSensitiveItem(TAKEDOWN_DRAFT_KEY, JSON.stringify(draft));
+  }, [draft, hydrated, privateMode, writeSensitiveItem]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -199,25 +194,21 @@ export function TakedownFlow() {
         detail: `${draft.anonymous ? "Anonymous report" : "Device-side report"} prepared for ${platform.label}. The 24-hour acknowledgement clock started.`,
       }],
     };
-    writeStorage(takedownCaseStorageKey(acknowledgement), JSON.stringify(savedCase));
-    const cases = safeCaseList(readStorage(TAKEDOWN_CASES_KEY));
-    writeStorage(TAKEDOWN_CASES_KEY, JSON.stringify([savedCase, ...cases.filter((item) => item.acknowledgement !== acknowledgement)]));
+    writeSensitiveItem(takedownCaseStorageKey(acknowledgement), JSON.stringify(savedCase));
+    const cases = safeCaseList(readSensitiveItem(TAKEDOWN_CASES_KEY));
+    writeSensitiveItem(TAKEDOWN_CASES_KEY, JSON.stringify([savedCase, ...cases.filter((item) => item.acknowledgement !== acknowledgement)]));
     setDraft((current) => ({ ...current, acknowledgement, step: "submitted" }));
     setBusy(null);
   }
 
   function resetDraft() {
-    try {
-      window.localStorage.removeItem(TAKEDOWN_DRAFT_KEY);
-    } catch {
-      // Reset the in-memory flow even when device storage is unavailable.
-    }
+    removeSensitiveItem(TAKEDOWN_DRAFT_KEY);
     setAnalysis(null);
     setDraft({ ...blankDraft, evidence: { ...emptyEvidenceChecklist } });
   }
 
   if (!hydrated) {
-    return <section className="panel min-h-72" role="status"><p className="eyebrow">Stop the spread</p><h1 className="mt-2 text-3xl">Restoring your saved report…</h1><p className="text-[var(--muted)]">Your draft stays on this device.</p></section>;
+    return <section className="panel min-h-72" role="status"><p className="eyebrow">Stop the spread</p><h1 className="mt-2 text-3xl">{privateMode ? "Preparing your private report…" : "Restoring your saved report…"}</h1><p className="text-[var(--muted)]">{privateMode ? "Nothing is loaded from device storage." : "Your draft stays on this device."}</p></section>;
   }
 
   if (draft.step === "submitted" && draft.acknowledgement && selectedPlatform && selectedHarm) {
@@ -229,11 +220,11 @@ export function TakedownFlow() {
           <h1 ref={headingRef} tabIndex={-1} style={stepHeadingStyle} id="takedown-confirmation-heading" className="mt-2 text-3xl leading-tight sm:text-4xl">Your evidence trail is recorded.</h1>
           <dl className="mt-6 grid gap-px bg-[#8cb8aa] sm:grid-cols-2">
             <div className="bg-white p-4"><dt className="text-xs font-black uppercase text-[var(--muted)]">Acknowledgement</dt><dd className="m-0 mt-1 break-all font-mono text-xl font-black">{draft.acknowledgement}</dd></div>
-            <div className="bg-white p-4"><dt className="text-xs font-black uppercase text-[var(--muted)]">Mode</dt><dd className="m-0 mt-1 font-black">{draft.anonymous ? "Anonymous — no identity collected" : "Saved on this device"}</dd></div>
+            <div className="bg-white p-4"><dt className="text-xs font-black uppercase text-[var(--muted)]">Mode</dt><dd className="m-0 mt-1 font-black">{draft.anonymous ? "Anonymous — no identity collected" : privateMode ? "Private — held in this tab" : "Saved on this device"}</dd></div>
             <div className="bg-white p-4"><dt className="text-xs font-black uppercase text-[var(--muted)]">Platform</dt><dd className="m-0 mt-1 font-black">{selectedPlatform.label}</dd></div>
             <div className="bg-white p-4"><dt className="text-xs font-black uppercase text-[var(--muted)]">Incident type</dt><dd className="m-0 mt-1 font-black">{selectedHarm.shortLabel}</dd></div>
           </dl>
-          <p className="mb-0 mt-4 text-sm leading-6"><strong>Prototype:</strong> this acknowledgement and report are stored only in this browser. No platform, NCRP, or police system was contacted.</p>
+          <p className="mb-0 mt-4 text-sm leading-6"><strong>Prototype:</strong> {privateMode ? "this acknowledgement and report are held only in this tab. Closing it loses them." : "this acknowledgement and report are stored only in this browser."} No platform, NCRP, or police system was contacted.</p>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <Link className="button-primary" href={`/case/takedown/${draft.acknowledgement}`}>Track takedown <ArrowRight aria-hidden="true" size={19} /></Link>
@@ -248,7 +239,7 @@ export function TakedownFlow() {
     <section className="mx-auto max-w-3xl" aria-labelledby="takedown-heading">
       <div className="sticky top-0 z-10 mb-4 border-2 border-[var(--primary)] bg-white p-3 shadow-sm">
         <div className="flex items-center justify-between gap-3">
-          <div><p className="m-0 text-xs font-black uppercase tracking-[0.08em] text-[var(--primary)]">Stop the spread · {stepNumber} of 6</p><p className="m-0 mt-1 text-sm font-bold">Preserve evidence first. Then report.</p></div>
+          <div><p className="m-0 text-xs font-black uppercase tracking-[0.08em] text-[var(--primary)]">Stop the spread · {stepNumber} of 6</p><p className="m-0 mt-1 text-sm font-bold">Preserve evidence first. Then report. {privateMode ? "Private mode is on." : "Draft saving is on."}</p></div>
           <ShieldAlert aria-hidden="true" className="shrink-0 text-[var(--primary)]" size={28} />
         </div>
       </div>
@@ -261,7 +252,7 @@ export function TakedownFlow() {
             <p className="mt-4 leading-7 text-[var(--muted)]">If sharing your identity feels unsafe, stay anonymous. This path will never ask for your name, phone, email, account, or ID.</p>
             <div className="mt-7 grid gap-3">
               <button className="min-h-20 w-full border-2 border-[var(--primary)] bg-[var(--primary)] px-4 text-left text-xl font-black text-white" type="button" onClick={() => update({ anonymous: true, step: "platform" })}><span className="flex items-center gap-3"><EyeOff aria-hidden="true" className="shrink-0" size={25} /> Report anonymously</span><span className="mt-2 block text-sm font-normal leading-6">No identity fields. You receive a 14-digit acknowledgement.</span></button>
-              <button className="min-h-20 w-full border-2 border-[var(--line-strong)] bg-white px-4 text-left text-xl font-black hover:border-[var(--primary)] hover:bg-[var(--blue-soft)]" type="button" onClick={() => update({ anonymous: false, step: "platform" })}><span className="flex items-center gap-3"><LockKeyhole aria-hidden="true" className="shrink-0 text-[var(--primary)]" size={25} /> Continue on this device</span><span className="mt-2 block text-sm font-normal leading-6 text-[var(--muted)]">Still no account creation. This browser remembers your draft.</span></button>
+              <button className="min-h-20 w-full border-2 border-[var(--line-strong)] bg-white px-4 text-left text-xl font-black hover:border-[var(--primary)] hover:bg-[var(--blue-soft)]" type="button" onClick={() => update({ anonymous: false, step: "platform" })}><span className="flex items-center gap-3"><LockKeyhole aria-hidden="true" className="shrink-0 text-[var(--primary)]" size={25} /> Continue on this device</span><span className="mt-2 block text-sm font-normal leading-6 text-[var(--muted)]">Still no account creation. {privateMode ? "This tab holds the draft only while it stays open." : "This browser remembers your draft."}</span></button>
             </div>
           </div>
         ) : null}
@@ -295,6 +286,7 @@ export function TakedownFlow() {
             platform={draft.platform!}
             evidence={draft.evidence}
             onToggle={toggleEvidence}
+            privateMode={privateMode}
             onContinue={() => update({ step: "describe" })}
             onBack={() => update({ step: "harm" })}
           />
@@ -333,7 +325,7 @@ export function TakedownFlow() {
   );
 }
 
-function GuidanceScreen({ headingRef, harm, platform, evidence, onToggle, onContinue, onBack }: { headingRef: React.RefObject<HTMLHeadingElement | null>; harm: TakedownHarm; platform: TakedownPlatform; evidence: SavedTakedownDraft["evidence"]; onToggle: (id: EvidenceChecklistId) => void; onContinue: () => void; onBack: () => void }) {
+function GuidanceScreen({ headingRef, harm, platform, evidence, privateMode, onToggle, onContinue, onBack }: { headingRef: React.RefObject<HTMLHeadingElement | null>; harm: TakedownHarm; platform: TakedownPlatform; evidence: SavedTakedownDraft["evidence"]; privateMode: boolean; onToggle: (id: EvidenceChecklistId) => void; onContinue: () => void; onBack: () => void }) {
   const isSextortion = harm === "sextortion";
   const isHacked = harm === "account_takeover";
   const isNcii = harm === "ncii";
@@ -348,7 +340,7 @@ function GuidanceScreen({ headingRef, harm, platform, evidence, onToggle, onCont
 
       {isHacked ? <section className="mt-4 border-2 border-[var(--primary)] bg-white p-4" aria-labelledby="recovery-heading"><h2 id="recovery-heading" className="m-0 text-xl">Mock {platformMeta[platform].label} recovery steps</h2><ol className="mt-4 grid gap-3 pl-6">{platformMeta[platform].recoverySteps.map((item) => <li className="pl-1 leading-7" key={item}>{item}</li>)}</ol><p className="mb-0 mt-3 text-xs leading-5 text-[var(--muted)]">These are demo instructions, not live platform links.</p></section> : null}
 
-      <fieldset className="mt-5"><legend className="text-xl font-black">Preserve what you can</legend><p className="mt-2 text-sm leading-6 text-[var(--muted)]">Your choices are saved on this device. You can continue even if an item is not available.</p><div className="mt-3 grid gap-2">{evidenceChecklistItems.map((item) => <label className={`grid min-h-16 cursor-pointer grid-cols-[1.75rem_1fr] gap-3 border-2 p-3 ${evidence[item.id] ? "border-[var(--safe)] bg-[var(--safe-soft)]" : "border-[var(--line)] bg-white hover:border-[var(--primary)]"}`} key={item.id}><input className="mt-1 size-6 accent-[var(--safe)]" type="checkbox" checked={evidence[item.id]} onChange={() => onToggle(item.id)} /><span><strong className="block">{item.label}</strong><span className="mt-1 block text-sm leading-6 text-[var(--muted)]">{item.detail}</span></span></label>)}</div></fieldset>
+      <fieldset className="mt-5"><legend className="text-xl font-black">Preserve what you can</legend><p className="mt-2 text-sm leading-6 text-[var(--muted)]">{privateMode ? "Your choices are held only in this tab." : "Your choices are saved on this device."} You can continue even if an item is not available.</p><div className="mt-3 grid gap-2">{evidenceChecklistItems.map((item) => <label className={`grid min-h-16 cursor-pointer grid-cols-[1.75rem_1fr] gap-3 border-2 p-3 ${evidence[item.id] ? "border-[var(--safe)] bg-[var(--safe-soft)]" : "border-[var(--line)] bg-white hover:border-[var(--primary)]"}`} key={item.id}><input className="mt-1 size-6 accent-[var(--safe)]" type="checkbox" checked={evidence[item.id]} onChange={() => onToggle(item.id)} /><span><strong className="block">{item.label}</strong><span className="mt-1 block text-sm leading-6 text-[var(--muted)]">{item.detail}</span></span></label>)}</div></fieldset>
       <button className="button-primary mt-5 w-full" type="button" onClick={onContinue}><Check aria-hidden="true" size={20} /> I have preserved what I can</button>
       <BackButton onClick={onBack} />
     </div>

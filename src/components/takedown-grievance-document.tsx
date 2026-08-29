@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { PrintDocumentButton } from "@/components/print-document-button";
 import { analyzeSocialNarrative } from "@/lib/engine";
 import { getLiveTakedownCase } from "@/lib/mock/takedown-cases";
+import { useSafety } from "@/lib/safety";
 import {
   evidenceChecklistItems,
   platformMeta,
@@ -23,30 +24,23 @@ function safeCase(raw: string | null): SavedTakedownCase | null {
   }
 }
 
-function readStorage(key: string) {
-  try {
-    return window.localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
-
 export function TakedownGrievanceDocument({ acknowledgement }: { acknowledgement: string }) {
+  const { clearRevision, privateMode, readSensitiveItem } = useSafety();
   const [caseData, setCaseData] = useState<SavedTakedownCase | null>(null);
   const [resolved, setResolved] = useState(false);
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
-      const saved = safeCase(readStorage(takedownCaseStorageKey(acknowledgement)));
+      const saved = safeCase(readSensitiveItem(takedownCaseStorageKey(acknowledgement)));
       const seeded = saved ? null : getLiveTakedownCase(acknowledgement, Date.now());
       setCaseData(saved ?? (seeded ? { ...seeded, version: 1 } : null));
       setResolved(true);
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [acknowledgement]);
+  }, [acknowledgement, clearRevision, readSensitiveItem]);
 
   if (!resolved) return <div className="document-page mx-auto max-w-4xl px-4 py-8"><div className="panel" role="status"><strong>Filling the saved grievance report…</strong></div></div>;
-  if (!caseData) return <div className="page-wrap"><section className="panel"><p className="eyebrow">Document not found on this device</p><h1 className="mt-2 text-3xl">The anonymous report is not stored here.</h1><Link className="button-primary mt-4" href="/case">Return to cases</Link></section></div>;
+  if (!caseData) return <div className="page-wrap"><section className="panel"><p className="eyebrow">Document not found {privateMode ? "in this tab" : "on this device"}</p><h1 className="mt-2 text-3xl">The anonymous report is not available here.</h1><Link className="button-primary mt-4" href="/case">Return to cases</Link></section></div>;
 
   const platform = platformMeta[caseData.platform];
   const harm = takedownHarmMeta[caseData.harm];
